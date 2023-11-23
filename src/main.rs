@@ -1,6 +1,44 @@
-use std::{net::{TcpListener}, process::exit, error::Error};
+use std::{net::{TcpListener}, error::Error, fmt::Display};
 use std::result::Result;
 use std::io::Write;
+
+
+// Boolean for censoring information
+const IS_CENSORED: bool = false;
+
+
+// Struct that represents the Censored information
+// Inner is the part that will be displayed, of a generic type
+struct Censor<T>{
+    inner: T
+}
+
+impl<T> Censor<T>{
+    fn new(inner: T)-> Self{
+        Self{inner}
+    }
+
+}
+
+// Implementation for displaying the inner 
+impl <T: std::fmt::Display> Display for Censor<T>{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if IS_CENSORED {
+            let _ = writeln!(f, "[CENSORED]").map_err(|err|{
+                eprint!("ERROR: censor did not work on write : {err}");
+            });
+        }else{
+            let _ = writeln!(f, "{inner}", inner = &self.inner).map_err(|err|{
+                eprintln!("ERROR: writing inner had an error : {err}");
+            });
+        }
+
+        Ok(())
+    }
+    
+}
+
+
 
 fn main() -> Result<(), Box<dyn Error>>{
 
@@ -13,8 +51,8 @@ fn main() -> Result<(), Box<dyn Error>>{
         return err;
     })?;
 
-    // Logging info 
-    println!("INFO: Listening to {address}...");
+    // Logging info, and maybe censor it 
+    println!("INFO: Listening to {address}...", address = Censor::new(address));
 
     // Listening to streams
     for  stream in tcp_listener.incoming(){
