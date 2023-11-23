@@ -25,11 +25,11 @@ impl <T: std::fmt::Display> Display for Censor<T>{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if IS_CENSORED {
             let _ = writeln!(f, "[CENSORED]").map_err(|err|{
-                eprint!("ERROR: censor did not work on write : {err}");
+                eprint!("ERROR: censor did not work on write : {err}", err = Censor::new(err));
             });
         }else{
             let _ = writeln!(f, "{inner}", inner = &self.inner).map_err(|err|{
-                eprintln!("ERROR: writing inner had an error : {err}");
+                eprintln!("ERROR: writing inner had an error : {err}", err = Censor::new(err));
             });
         }
 
@@ -39,15 +39,21 @@ impl <T: std::fmt::Display> Display for Censor<T>{
 }
 
 
+fn client(){
+    todo!();
+    // 35 minutes in
+}
+
+
 
 fn main() -> Result<(), Box<dyn Error>>{
 
     // Address to connect to
-    let address = "127.0.0.1:8080";
+    let address = "0.0.0.0:8080";
 
     // TCP Listener 
     let tcp_listener = TcpListener::bind(&address).map_err(|err|{
-        eprint!("ERROR: Error during binding a TCP listener : {err}");
+        eprint!("ERROR: Error during binding a TCP listener : {err}", err = Censor::new(&err));
         return err;
     })?;
 
@@ -60,10 +66,10 @@ fn main() -> Result<(), Box<dyn Error>>{
             Ok(mut stream) => {
                 // Read the stream
                 let _ = writeln!(stream, "Hello world").map_err(|err| {
-                    eprint!("ERROR: could not handle stream write {err}");
+                    eprint!("ERROR: could not handle stream write {err}", err = Censor::new(err));
                 });
             },
-            Err(err) => eprintln!("ERROR: Could not read from stream : {err}"),
+            Err(err) => eprintln!("ERROR: Could not read from stream : {err}" , err = Censor::new(err)),
         }
     }
 
