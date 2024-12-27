@@ -5,3 +5,17 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4"
+actix-ws = "0.3.0"
+futures-util = "0.3.31"
+tokio = { version = "1", features = ["full"] }
+
+
+# Web Socket server run 
+[[bin]] 
+name = "server"
+path = "src/server.rs"
+
+# Web socket client 
+[[bin]] 
+name = "client"
+path = "src/client.rs"
