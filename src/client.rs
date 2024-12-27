@@ -1,13 +1,15 @@
-use std::{io::{self, Write}, process::{exit, Command}};
+use std::{io::{self, Write}, process::exit, thread};
+use awc::ws::{self};
+use futures_util::{SinkExt as _, StreamExt as _};
+use tokio::{select, sync::mpsc, task::LocalSet};
+use actix_web::web::Bytes;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 const COMMAND_LINE_SYMBOL: &str = "$";
 const MESSAGE_LINE_SYMBOL: &str = ">";
 const MESSAGE_COMMAND_SYMBOL: &str = "/";
 const INFO_LOG: &str = "[INFO]";
 const ERROR_LOG: &str = "[ERROR]";
-
-
-struct WebSocketConnection;
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -17,12 +19,16 @@ enum WebSocketState{
 }
 
 struct WebSocketClient{
-    state: WebSocketState
+    state: WebSocketState,
 }
 
 impl WebSocketClient {
     pub fn new() -> Self{
-        Self { state: WebSocketState::Ready }
+        Self { state: WebSocketState::Ready}
+    }
+
+    pub fn connect(&mut self, server_ip: &str) -> Result<(), ()>{
+        Ok(())
     }
 
     pub fn get_state(&self) -> &WebSocketState{
@@ -34,8 +40,65 @@ impl WebSocketClient {
     }
 }
 
+async fn connect(server_ip: String, ws_client: &mut WebSocketClient) {
+    let local = LocalSet::new();
 
-fn handle_client_command(command:&str, ws_client: &mut WebSocketClient){
+    local.spawn_local(async move {
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+        let mut cmd_rx = UnboundedReceiverStream::new(cmd_rx);
+
+        // run blocking terminal input reader on a separate thread
+        let input_thread = thread::spawn(move || loop {
+            let mut cmd = String::with_capacity(32);
+
+            if io::stdin().read_line(&mut cmd).is_err() {
+                println!("{} could not read message input", ERROR_LOG);
+                return;
+            }
+
+            cmd_tx.send(cmd).unwrap();
+        });
+
+        let (res, mut ws) = awc::Client::new()
+            .ws(server_ip)
+            .connect()
+            .await
+            .unwrap();
+
+        println!("{} response: {res:?}", INFO_LOG);
+
+        loop {
+            select! {
+                Some(msg) = ws.next() => {
+                    match msg {
+                        Ok(ws::Frame::Text(txt)) => {
+                            println!("{} Server: {txt:?}", INFO_LOG);
+                        }
+                        Ok(ws::Frame::Ping(_)) => {
+                            ws.send(ws::Message::Pong(Bytes::new())).await.unwrap();
+                        }
+                        _ => {}
+                    }
+                }
+                Some(cmd) = cmd_rx.next() => {
+                    if cmd.is_empty() {
+                        continue;
+                    }
+
+                    ws.send(ws::Message::Text(cmd.into())).await.unwrap();
+                }
+                else => break,
+            }
+        }
+
+        input_thread.join().unwrap();
+    });
+
+    local.await; // Wait for the LocalSet to complete
+}
+
+
+async fn handle_client_command(command:&str, ws_client: &mut WebSocketClient){
     let command_parts: Vec<&str> = command.split_ascii_whitespace().collect(); 
 
     match command_parts.as_slice() {
@@ -55,11 +118,7 @@ fn handle_client_command(command:&str, ws_client: &mut WebSocketClient){
 
 
             // Do connection
-
-            // Connected!
-
-            // Set state of the client to connected
-            ws_client.set_state(WebSocketState::Connected);
+            connect(ip.to_string(), ws_client).await;
 
         }
         _ => {
@@ -125,7 +184,7 @@ async fn main() {
         if *ws_client.get_state() == WebSocketState::Connected{
             handle_message_commands(trimmed_input, &mut ws_client);
         }else{
-            handle_client_command(trimmed_input, &mut ws_client);
+            handle_client_command(trimmed_input, &mut ws_client).await;
         }
     }
 }
