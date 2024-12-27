@@ -10,6 +10,7 @@ const MESSAGE_LINE_SYMBOL: &str = ">";
 const MESSAGE_COMMAND_SYMBOL: &str = "/";
 const INFO_LOG: &str = "[INFO]";
 const ERROR_LOG: &str = "[ERROR]";
+const DEFAULT_SERVER_PORT: &str = "8080";
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -27,10 +28,6 @@ impl WebSocketClient {
         Self { state: WebSocketState::Ready}
     }
 
-    pub fn connect(&mut self, server_ip: &str) -> Result<(), ()>{
-        Ok(())
-    }
-
     pub fn get_state(&self) -> &WebSocketState{
         return &self.state; 
     }
@@ -40,7 +37,7 @@ impl WebSocketClient {
     }
 }
 
-async fn connect(server_ip: String, ws_client: &mut WebSocketClient) {
+async fn connect(server_ip: String, server_port:String, ws_client: &mut WebSocketClient) {
     let local = LocalSet::new();
 
     local.spawn_local(async move {
@@ -59,14 +56,19 @@ async fn connect(server_ip: String, ws_client: &mut WebSocketClient) {
             cmd_tx.send(cmd).unwrap();
         });
 
+        // Format the websocket url
+        let ws_url = format!("ws://{server_ip}:{server_port}/ws");
+
+        // Connect to the server
         let (res, mut ws) = awc::Client::new()
-            .ws(server_ip)
+            .ws(ws_url)
             .connect()
             .await
             .unwrap();
 
         println!("{} response: {res:?}", INFO_LOG);
 
+        // Handle incoming messages 
         loop {
             select! {
                 Some(msg) = ws.next() => {
@@ -116,9 +118,8 @@ async fn handle_client_command(command:&str, ws_client: &mut WebSocketClient){
             let ip = command_parts[1];
             println!("{} Connecting to server at IP {}", INFO_LOG, ip);
 
-
             // Do connection
-            connect(ip.to_string(), ws_client).await;
+            connect(ip.to_string(), DEFAULT_SERVER_PORT.to_string(), ws_client).await;
 
         }
         _ => {
