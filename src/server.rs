@@ -147,6 +147,9 @@ async fn ws(
                                 current_client.leave_room(&client_id, room, &rooms).await;
                             }
 
+                            // Log join message
+                            println!("[INFO] User {} is joining in room: {}", current_client.get_user_name(), room_name);
+
                             // Join the new room
                             current_client
                                 .join_room(&client_id, &room_name, &rooms)
