@@ -7,10 +7,9 @@ use actix_ws::{Message, Session};
 use futures_util::StreamExt as _;
 use uuid::Uuid;
 
-type Rooms = Arc<Mutex<HashMap<String, HashSet<String>>>>;
-type Clients = Arc<Mutex<HashMap<String, Session>>>;
 
-#[allow(dead_code)]
+
+#[derive(Clone)]
 struct Client{
     client_id: String,
     session: Option<Session>,
@@ -18,13 +17,16 @@ struct Client{
     current_room_name: Option<String> 
 }
 
+type Rooms = Arc<Mutex<HashMap<String, HashSet<String>>>>;
+type Clients = Arc<Mutex<HashMap<String, Client>>>;
+
 impl Client {
-    pub fn new(client_id: String) -> Self{
+    pub fn new(client_id: String, session: Session) -> Self{
         Self{
             client_id,
             current_room_name: None,
             user_name: None,
-            session: None
+            session: Some(session)
         }
     }
 
@@ -34,6 +36,10 @@ impl Client {
 
     pub fn has_joined_room(&self) -> bool{
         self.current_room_name.is_some()
+    }
+
+    pub fn get_session(&self) -> Session{
+        self.session.clone().unwrap()
     }
 
     async fn join_room(&mut self, client_id: &str, room_name: &str, rooms: &web::Data<Rooms>) {
@@ -77,8 +83,8 @@ impl Client {
         if let Some(room) = rooms.get(&self.current_room_name.clone().unwrap()) {
             for client_id in room {
                 if *client_id != self.client_id {
-                    if let Some(session) = clients.get_mut(client_id) {
-                        let _ = session.text(format!("{}: {}", self.user_name.clone().unwrap_or("unknown".to_string()), message)).await;
+                    if let Some(client) = clients.get_mut(client_id) {
+                        let _ = client.get_session().text(format!("{}: {}", self.user_name.clone().unwrap_or("unknown".to_string()), message)).await;
                     }
                 }
             }
@@ -98,10 +104,10 @@ async fn ws(
     let client_id = Uuid::new_v4().to_string();
 
     // Create the new client 
-    let mut current_client = Client::new(client_id.clone());
+    let mut current_client = Client::new(client_id.clone(), session.clone());
 
     // Add the client to the global list of clients
-    clients.lock().unwrap().insert(client_id.clone(), session.clone());
+    clients.lock().unwrap().insert(client_id.clone(), current_client.clone());
 
     actix_web::rt::spawn({
         let rooms = rooms.clone();
@@ -173,16 +179,25 @@ async fn ws(
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    // Creating the rooms and clients
     let rooms: Rooms = Arc::new(Mutex::new(HashMap::new()));
     let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
 
+    // Server IP and port
+    let server_ip = "127.0.0.1";
+    let server_port = 8080; 
+
+    // Logging 
+    println!("[INFO] Chat Server running on {}:{}", server_ip, server_port);
+
+    // Creating and running the HTTP server
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(rooms.clone()))
             .app_data(web::Data::new(clients.clone()))
             .route("/ws", web::get().to(ws))
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((server_ip, server_port))?
     .run()
     .await
 }
