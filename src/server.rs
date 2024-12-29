@@ -1,3 +1,4 @@
+use actix_files::Files;
 use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 use actix_ws::{Message, Session};
 use futures_util::StreamExt as _;
@@ -246,6 +247,12 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(rooms.clone()))
             .app_data(web::Data::new(clients.clone()))
+            
+            // Serving main page
+            .service(Files::new("/", "./src/frontend/").index_file("index.html"))
+            .service(Files::new("/", "./src/frontend/").index_file("style.css"))
+
+            // Serving websocket
             .route("/ws", web::get().to(ws))
     })
     .bind((server_ip, server_port))?
