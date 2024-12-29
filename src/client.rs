@@ -1,8 +1,12 @@
-use std::{io::{self, Write}, process::exit, thread};
+use actix_web::web::Bytes;
 use awc::ws::{self};
 use futures_util::{SinkExt as _, StreamExt as _};
+use std::{
+    io::{self, Write},
+    process::exit,
+    thread,
+};
 use tokio::{select, sync::mpsc, task::LocalSet};
-use actix_web::web::Bytes;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 const COMMAND_LINE_SYMBOL: &str = "$";
@@ -12,32 +16,33 @@ const INFO_LOG: &str = "[INFO]";
 const ERROR_LOG: &str = "[ERROR]";
 const DEFAULT_SERVER_PORT: &str = "8080";
 
-
 #[derive(Debug, PartialEq, Eq)]
-enum WebSocketState{
+enum WebSocketState {
     Connected,
-    Ready, 
+    Ready,
 }
 
-struct WebSocketClient{
+struct WebSocketClient {
     state: WebSocketState,
 }
 
 impl WebSocketClient {
-    pub fn new() -> Self{
-        Self { state: WebSocketState::Ready}
+    pub fn new() -> Self {
+        Self {
+            state: WebSocketState::Ready,
+        }
     }
 
-    pub fn get_state(&self) -> &WebSocketState{
-        return &self.state; 
+    pub fn get_state(&self) -> &WebSocketState {
+        return &self.state;
     }
 
-    pub fn set_state(&mut self, new_state: WebSocketState){
-        self.state = new_state; 
+    pub fn set_state(&mut self, new_state: WebSocketState) {
+        self.state = new_state;
     }
 }
 
-async fn connect(server_ip: String, server_port:String, ws_client: &mut WebSocketClient) {
+async fn connect(server_ip: String, server_port: String, ws_client: &mut WebSocketClient) {
     let local = LocalSet::new();
 
     local.spawn_local(async move {
@@ -60,21 +65,24 @@ async fn connect(server_ip: String, server_port:String, ws_client: &mut WebSocke
         let ws_url = format!("ws://{server_ip}:{server_port}/ws");
 
         // Connect to the server
-        let (res, mut ws) = awc::Client::new()
-            .ws(ws_url)
-            .connect()
-            .await
-            .unwrap();
+        let (res, mut ws) = awc::Client::new().ws(ws_url).connect().await.unwrap();
 
         println!("{} response: {res:?}", INFO_LOG);
 
-        // Handle incoming messages 
+        // Handle incoming messages
         loop {
             select! {
                 Some(msg) = ws.next() => {
                     match msg {
                         Ok(ws::Frame::Text(txt)) => {
-                            println!("{txt:?}");
+                            match String::from_utf8(txt.to_vec()) {
+                                Ok(valid_str) => {
+                                    println!("{}", valid_str);
+                                }
+                                Err(err) => {
+                                    println!("{} Failed to parse text frame: {}", ERROR_LOG, err);
+                                }
+                            }
                         }
                         Ok(ws::Frame::Ping(_)) => {
                             ws.send(ws::Message::Pong(Bytes::new())).await.unwrap();
@@ -99,19 +107,18 @@ async fn connect(server_ip: String, server_port:String, ws_client: &mut WebSocke
     local.await; // Wait for the LocalSet to complete
 }
 
-
-async fn handle_client_command(command:&str, ws_client: &mut WebSocketClient){
-    let command_parts: Vec<&str> = command.split_ascii_whitespace().collect(); 
+async fn handle_client_command(command: &str, ws_client: &mut WebSocketClient) {
+    let command_parts: Vec<&str> = command.split_ascii_whitespace().collect();
 
     match command_parts.as_slice() {
         ["exit"] => {
             println!("{} Exiting the command", INFO_LOG);
             exit(0);
-        },
+        }
         ["connect", ..] => {
-            if command_parts.len() != 2{
+            if command_parts.len() != 2 {
                 println!("{} Please provide server IP", ERROR_LOG);
-                return; 
+                return;
             }
 
             // Connect to server command
@@ -120,50 +127,44 @@ async fn handle_client_command(command:&str, ws_client: &mut WebSocketClient){
 
             // Do connection
             connect(ip.to_string(), DEFAULT_SERVER_PORT.to_string(), ws_client).await;
-
         }
         _ => {
             println!("{} Unknown command", ERROR_LOG);
         }
     }
-
 }
 
-
-fn handle_message_commands(input:&str, ws_client: &mut WebSocketClient){
+fn handle_message_commands(input: &str, ws_client: &mut WebSocketClient) {
     // Message command only if the command starts with the command symbol
     // This allows users to execute commands when they are messaging
-    if input.starts_with(MESSAGE_COMMAND_SYMBOL){
+    if input.starts_with(MESSAGE_COMMAND_SYMBOL) {
         // Handle given command
         match input {
             "/disconnect" => {
                 println!("{} Disconnecting...", INFO_LOG);
                 ws_client.set_state(WebSocketState::Ready);
-            },
+            }
             _ => {
                 println!("{} Unknown command", ERROR_LOG);
             }
         }
-
-    }else{
+    } else {
         // The input is text and should be sent to the server
         // TODO: send message to server
     }
 }
 
-
-
 #[tokio::main]
 async fn main() {
     // Create a new web socket client instance
-    let mut ws_client = WebSocketClient::new(); 
+    let mut ws_client = WebSocketClient::new();
 
     // Infinite input loop
     loop {
         // Print the command line symbol
-        if *ws_client.get_state() == WebSocketState::Connected{
+        if *ws_client.get_state() == WebSocketState::Connected {
             print!("{} ", MESSAGE_LINE_SYMBOL);
-        }else{
+        } else {
             print!("{} ", COMMAND_LINE_SYMBOL);
         }
 
@@ -182,9 +183,9 @@ async fn main() {
 
         // If the current state is connected, we handle input as messages to the server
         // Otherwise we handle inputs as commands
-        if *ws_client.get_state() == WebSocketState::Connected{
+        if *ws_client.get_state() == WebSocketState::Connected {
             handle_message_commands(trimmed_input, &mut ws_client);
-        }else{
+        } else {
             handle_client_command(trimmed_input, &mut ws_client).await;
         }
     }
