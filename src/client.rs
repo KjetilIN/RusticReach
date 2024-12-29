@@ -64,6 +64,8 @@ async fn connect(server_ip: String, server_port: String, ws_client: &mut WebSock
         // Format the websocket url
         let ws_url = format!("ws://{server_ip}:{server_port}/ws");
 
+        println!("{} Trying to connect to {} ...", INFO_LOG, ws_url);
+
         // Connect to the server
         let (res, mut ws) = awc::Client::new().ws(ws_url).connect().await.unwrap();
 
