@@ -1,6 +1,6 @@
 # RusticReach 🦀
 
-![gif](./assets/github/demos/demo_0_0_1.gif)
+![image](./assets/github/demos/demo_0_0_1_img.png)
 
 Scalable Chat Service with Rust 
 
