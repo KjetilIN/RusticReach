@@ -5,28 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Service</title>
     <link rel="stylesheet" href="style.css">
+    
 </head>
 <body>
     <div class="chat-container">
         <header class="chat-header">
-            <h1>Rustic Reach</h1>
+            <h1><span>Rustic</span> Reach 🦀</h1>
         </header>
-        <main class="chat-main">
-            <div id="chat-messages" class="chat-messages">
-                <!-- Messages will be dynamically inserted here -->
-                <div class="message received">
-                    <div class="message-content">
-                        <p>Hello! How can I assist you today?</p>
-                        <span class="timestamp">10:42 AM</span>
-                    </div>
-                </div>
-                <div class="message sent">
-                    <div class="message-content">
-                        <p>Hi! Can you help me with my code?</p>
-                        <span class="timestamp">10:43 AM</span>
-                    </div>
-                </div>
-            </div>
+        <main id="chat-list">
+            <!--Chat messages goes here!-->
         </main>
         <footer class="chat-footer">
             <input 
@@ -37,27 +24,6 @@
             <button id="send-btn">Send</button>
         </footer>
     </div>
-    <script>
-        const sendBtn = document.getElementById('send-btn');
-        const messageInput = document.getElementById('message-input');
-        const chatMessages = document.getElementById('chat-messages');
-
-        sendBtn.addEventListener('click', () => {
-            const messageText = messageInput.value.trim();
-            if (messageText) {
-                const messageElem = document.createElement('div');
-                messageElem.classList.add('message', 'sent');
-                messageElem.innerHTML = `
-                    <div class="message-content">
-                        <p>${messageText}</p>
-                        <span class="timestamp">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                `;
-                chatMessages.appendChild(messageElem);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                messageInput.value = '';
-            }
-        });
-    </script>
+    <script src="script.js"> </script>
 </body>
 </html>
