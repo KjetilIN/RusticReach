@@ -74,7 +74,7 @@ async fn connect(server_ip: String, server_port:String, ws_client: &mut WebSocke
                 Some(msg) = ws.next() => {
                     match msg {
                         Ok(ws::Frame::Text(txt)) => {
-                            println!("{} Server: {txt:?}", INFO_LOG);
+                            println!("{txt:?}");
                         }
                         Ok(ws::Frame::Ping(_)) => {
                             ws.send(ws::Message::Pong(Bytes::new())).await.unwrap();
