@@ -1,16 +1,3 @@
-# RusticReach 🦀
-
-![image](./assets/github/demos/demo_0_0_1_img.png)
-
-Scalable Chat Service with Rust 
-
-_Repository created for educational purposes only_
-
-## Usage
-
-A client config file: 
-
-```yml
 client:
   user-name: zebra123
   hash_pass: asfdgfhgdQESHZDJXK
@@ -23,4 +10,3 @@ client:
     friends: elephant321
     work: anon
     hacker-arena: test
-```

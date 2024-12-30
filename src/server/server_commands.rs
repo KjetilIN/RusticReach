@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, HashSet}, sync::{Arc, Mutex}};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex},
+};
 
 use actix_web::web::Data;
 use lazy_static::lazy_static;
@@ -6,7 +9,6 @@ use lazy_static::lazy_static;
 use crate::shared::{command::Command, commands::Commands};
 
 use super::{room::Rooms, user::User};
-
 
 pub fn setup() -> Commands {
     // Server commands
