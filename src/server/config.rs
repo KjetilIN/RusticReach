@@ -48,9 +48,8 @@ pub struct GeneralServerConfig {
     max_user_count: usize,
 }
 
-
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ServerConfig{
+pub struct ServerConfig {
     admin: AdminConfig,
-    general: GeneralServerConfig
+    general: GeneralServerConfig,
 }
