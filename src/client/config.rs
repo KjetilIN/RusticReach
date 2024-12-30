@@ -20,6 +20,18 @@ pub struct ClientConfig {
 }
 
 impl ClientConfig {
+    pub fn get_user_name(&self, room_name: &Option<String>) -> &str {
+        // Check if there is any aliases defined in the config that we could use
+        if let Some(given_room_name) = room_name {
+            if let Some(name) = self.room_aliases.get(given_room_name) {
+                return &name;
+            }
+        }
+
+        // Return the default user name
+        &self.user_name
+    }
+
     pub fn get_default_server(&self) -> Option<&DefaultServer> {
         self.default_server.as_ref()
     }
@@ -34,10 +46,10 @@ pub struct DefaultServer {
 }
 
 impl DefaultServer {
-    pub fn ip(&self) -> String{
+    pub fn ip(&self) -> String {
         self.server_ip.clone()
     }
-    pub fn should_auto_connect(&self) -> bool{
+    pub fn should_auto_connect(&self) -> bool {
         self.auto_connect
     }
 }

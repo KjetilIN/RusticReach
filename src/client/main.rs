@@ -3,11 +3,15 @@ use awc::ws::{self};
 use colored::Colorize;
 use futures_util::{SinkExt as _, StreamExt as _};
 use once_cell::sync::Lazy;
-use rustic_reach::client::config::{parse_client_config, ClientConfig};
+use rustic_reach::{
+    client::config::{parse_client_config, ClientConfig},
+    shared::formatted_messages::format_message_string,
+};
 use std::{
     env,
     io::{self, Write},
     process::exit,
+    sync::Arc,
     thread::{self, sleep},
     time::Duration,
 };
@@ -20,125 +24,13 @@ static ERROR_LOG: Lazy<String> = Lazy::new(|| "[ERROR]".red().to_string());
 static INFO_LOG: Lazy<String> = Lazy::new(|| "[INFO]".green().to_string());
 static WARNING_LOG: Lazy<String> = Lazy::new(|| "[WARNING]".yellow().to_string());
 static MESSAGE_LINE_SYMBOL: Lazy<String> = Lazy::new(|| ">".blue().to_string());
-
 const DEFAULT_SERVER_PORT: &str = "8080";
 
-async fn connect(server_ip: String, server_port: String) {
-    let local = LocalSet::new();
-
-    local.spawn_local(async move {
-        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
-        let mut cmd_rx = UnboundedReceiverStream::new(cmd_rx);
-
-        // Format the websocket url
-        let ws_url = format!("ws://{server_ip}:{server_port}/ws");
-
-        println!("{} Trying to connect to {} ...", *INFO_LOG, ws_url);
-
-        // Connect to the server
-        let (res, mut ws) = awc::Client::new().ws(ws_url).connect().await.unwrap_or_else(|err|{
-            println!("{} Failed to connect to {}, {}", *ERROR_LOG, server_ip, err);
-            exit(1)
-        });
-
-
-        // run blocking terminal input reader on a separate thread
-        let input_thread = thread::spawn(move || loop {
-            let mut cmd = String::with_capacity(32);
-
-            // Print message line symbol
-            print!("{} ", *MESSAGE_LINE_SYMBOL);
-
-            // Flush the output
-            std::io::stdout().flush().expect("Failed to flush stdout");
-
-            // Read input
-            if io::stdin().read_line(&mut cmd).is_err() {
-                println!("{} could not read message input", *ERROR_LOG);
-                return;
-            }
-
-            // Handle input
-            handle_message_commands(cmd.clone());
-
-            // Send ...
-            cmd_tx.send(cmd).unwrap();
-        });
-
-        println!("{} response: {res:?}", *INFO_LOG);
-
-        // Sleep for a bit before clearing the terminal
-        sleep(Duration::from_millis(300));
-
-        // Clear screen
-        println!("{}[2J", 27 as char);
-
-        // Handle incoming messages
-        loop {
-            select! {
-                Some(msg) = ws.next() => {
-                    match msg {
-                        Ok(ws::Frame::Text(txt)) => {
-                            match String::from_utf8(txt.to_vec()) {
-                                Ok(valid_str) => {
-                                    println!("{}", valid_str);
-                                }
-                                Err(err) => {
-                                    println!("{} Failed to parse text frame: {}", *ERROR_LOG, err);
-                                }
-                            }
-                        }
-                        Ok(ws::Frame::Ping(_)) => {
-                            ws.send(ws::Message::Pong(Bytes::new())).await.unwrap();
-                        }
-                        _ => {}
-                    }
-                }
-                Some(cmd) = cmd_rx.next() => {
-                    if cmd.is_empty() {
-                        continue;
-                    }
-
-                    ws.send(ws::Message::Text(cmd.into())).await.unwrap();
-                }
-                else => break,
-            }
-        }
-
-        input_thread.join().unwrap();
-    });
-
-    local.await; // Wait for the LocalSet to complete
-}
-
-async fn handle_client_command(command: &str) {
-    let command_parts: Vec<&str> = command.split_ascii_whitespace().collect();
-
-    match command_parts.as_slice() {
-        ["exit"] => {
-            println!("{} Exiting the command", *INFO_LOG);
-            exit(0);
-        }
-        ["connect", ..] => {
-            if command_parts.len() != 2 {
-                println!("{} Please provide server IP", *ERROR_LOG);
-                return;
-            }
-
-            // Connect to server command
-            let ip = command_parts[1];
-            println!("{} Connecting to server at IP {}", *INFO_LOG, ip);
-
-            // Do connection
-            connect(ip.to_string(), DEFAULT_SERVER_PORT.to_string()).await;
-        }
-        _ => {
-            println!("{} Unknown command", *ERROR_LOG);
-        }
-    }
-}
-
-fn handle_message_commands(input: String) {
+fn handle_message_commands(
+    input: String,
+    client_config: &ClientConfig,
+    room_name: &mut Option<String>,
+) {
     // Message command only if the command starts with the command symbol
     // This allows users to execute commands when they are messaging
     if input.starts_with(MESSAGE_COMMAND_SYMBOL) {
@@ -153,7 +45,8 @@ fn handle_message_commands(input: String) {
         }
     } else {
         // The input is text and should be sent to the server
-        // TODO: send message to server
+        let user_name = client_config.get_user_name(room_name);
+        let message = format_message_string(user_name, (250, 0, 0), &input);
     }
 }
 
@@ -194,11 +87,14 @@ async fn main() {
 
     // If a default server and auto connect is set to true, then do connection
     if let Some(server_options) = client_config.get_default_server() {
-        if server_options.should_auto_connect(){
+        if server_options.should_auto_connect() {
             println!("{} Auto connecting to default server...", *INFO_LOG);
-            connect(server_options.ip(), DEFAULT_SERVER_PORT.to_string()).await;
+            //connect(server_options.ip(), DEFAULT_SERVER_PORT.to_string()).await;
         }
-        println!("{} Default server detected. Use /connect (without args) to connect to the server.", *INFO_LOG);
+        println!(
+            "{} Default server detected. Use /connect (without args) to connect to the server.",
+            *INFO_LOG
+        );
     }
 
     // Infinite input loop
@@ -221,6 +117,6 @@ async fn main() {
 
         // If the current state is connected, we handle input as messages to the server
         // Otherwise we handle inputs as commands
-        handle_client_command(trimmed_input).await;
+        // handle_client_command(trimmed_input).await;
     }
 }

@@ -45,7 +45,7 @@ async fn ws(
                         let text = text.trim();
 
                         // Handle commands
-                        if text.starts_with("/join ") {
+                        if text.starts_with("/join") {
                             let room_name = text.strip_prefix("/join ").unwrap().to_string();
 
                             // Leave the current room if necessary
