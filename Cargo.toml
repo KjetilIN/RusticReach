@@ -24,9 +24,9 @@ features = [
 # Web Socket server run 
 [[bin]] 
 name = "server"
-path = "src/server.rs"
+path = "src/server/main.rs"
 
 # Web socket client 
 [[bin]] 
 name = "client"
-path = "src/client.rs"
+path = "src/client/main.rs"
