@@ -3,6 +3,8 @@ pub struct Command {
     // The trigger is the first thing that is typed for the user
     trigger: String,
 
+    //trigger_fn: fn(client: Client);
+
     // For explaining the command
     description: String,
     usage: String,
