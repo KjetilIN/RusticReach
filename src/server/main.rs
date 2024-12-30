@@ -2,16 +2,12 @@ use actix_files::Files;
 use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 use actix_ws::{Message, Session};
 use futures_util::StreamExt as _;
+use rustic_reach::server::{room::Rooms, user::{User, Users}};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 use uuid::Uuid;
-
-use crate::server::{
-    room::Rooms,
-    user::{User, Users},
-};
 
 async fn ws(
     req: HttpRequest,

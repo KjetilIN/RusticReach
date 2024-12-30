@@ -1,10 +1,16 @@
-use crate::server::room::Rooms;
 use actix_web::web;
 use actix_ws::Session;
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
+
+use super::room::Rooms;
+
+
+// Set of users for the server
+pub type Users = Arc<Mutex<HashMap<String, User>>>;
+
 
 #[derive(Clone)]
 pub struct User {
@@ -13,9 +19,6 @@ pub struct User {
     user_name: Option<String>,
     current_room_name: Option<String>,
 }
-
-// Set of users for the server
-pub type Users = Arc<Mutex<HashMap<String, User>>>;
 
 impl User {
     pub fn new(user_id: String, session: Session) -> Self {
