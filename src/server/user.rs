@@ -46,6 +46,19 @@ impl User {
         self.user_name.clone().unwrap()
     }
 
+    pub fn get_id(&self) -> &str{
+        &self.user_id
+    }
+
+    pub fn get_room_name(&self) -> Option<String>{
+        //TODO: improve this, should not need to clone
+        self.current_room_name.clone()
+    }
+
+    pub fn set_room(&mut self, room_name: String){
+        self.current_room_name = Some(room_name);
+    }
+
     pub async fn join_room(&mut self, user_id: &str, room_name: &str, rooms: &web::Data<Rooms>) {
         // Set the room from the rooms
         let mut rooms = rooms.lock().unwrap();
