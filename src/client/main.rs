@@ -3,7 +3,9 @@ use awc::ws::{self};
 use colored::Colorize;
 use futures_util::{SinkExt as _, StreamExt as _};
 use once_cell::sync::Lazy;
+use rustic_reach::client::config::{parse_client_config, ClientConfig};
 use std::{
+    env,
     io::{self, Write},
     process::exit,
     thread::{self, sleep},
@@ -151,8 +153,41 @@ fn handle_message_commands(input: String) {
     }
 }
 
+/**
+ * Validates the input arguments of the
+ *
+ * Logs error and info
+ *
+ * Returns either the parsed client config or an error.
+ */
+pub fn validate_args() -> Result<ClientConfig, ()> {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() != 3 || &args[1] != "-c" || args[2].is_empty() {
+        println!("{} Usage: <program> -c <client.yml>", *ERROR_LOG);
+        return Err(());
+    }
+
+    let file_path = &args[2];
+    if let Some(config) = parse_client_config(&file_path) {
+        return Ok(config);
+    } else {
+        println!(
+            "{} Provided client config {} could not be parsed",
+            *ERROR_LOG, file_path
+        );
+        return Err(());
+    }
+}
+
 #[tokio::main]
 async fn main() {
+    let client_config = validate_args().unwrap_or_else(|_| {
+        exit(1);
+    });
+
+    println!("{} Client config parsed", *INFO_LOG);
+
     // Infinite input loop
     loop {
         // Print the command line symbol
