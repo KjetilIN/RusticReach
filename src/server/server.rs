@@ -148,7 +148,11 @@ async fn ws(
                             }
 
                             // Log join message
-                            println!("[INFO] User {} is joining in room: {}", current_client.get_user_name(), room_name);
+                            println!(
+                                "[INFO] User {} is joining in room: {}",
+                                current_client.get_user_name(),
+                                room_name
+                            );
 
                             // Join the new room
                             current_client
@@ -250,10 +254,8 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(rooms.clone()))
             .app_data(web::Data::new(clients.clone()))
-
             // Serving websocket
             .route("/ws", web::get().to(ws))
-
             // Serving main page
             .service(Files::new("/", "./src/frontend/").index_file("index.html"))
     })
