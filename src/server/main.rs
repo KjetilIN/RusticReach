@@ -54,9 +54,11 @@ async fn ws(
                             }
 
                             // Log join message
+                            //TODO: FIX this
                             println!(
                                 "[INFO] User {} is joining in room: {}",
-                                current_user.get_user_name(),
+                                <Option<String> as Clone>::clone(&current_user.get_user_name())
+                                    .unwrap(),
                                 room_name
                             );
 

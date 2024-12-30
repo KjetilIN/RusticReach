@@ -40,8 +40,8 @@ impl User {
         self.session.clone().unwrap()
     }
 
-    pub fn get_user_name(&self) -> String {
-        self.user_name.clone().unwrap()
+    pub fn get_user_name(&self) -> &Option<String> {
+        &self.user_name
     }
 
     pub fn get_id(&self) -> &str {
