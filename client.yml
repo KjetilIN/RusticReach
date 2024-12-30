@@ -1,12 +1,12 @@
 client:
-  user-name: zebra123
+  user_name: zebra123
   hash_pass: asfdgfhgdQESHZDJXK
-  user-token: 12345678756432134567
-  validate-server-repo: true
-  default-server:
-    server-ip: 127.0.0.1
-    auto-connect: true
+  user_token: 12345678756432134567
+  validate_server_repo: true
+  default_server:
+    server_ip: 127.0.0.1
+    auto_connect: true
   room_aliases:
     friends: elephant321
     work: anon
-    hacker-arena: test
+    hacker_arena: test
