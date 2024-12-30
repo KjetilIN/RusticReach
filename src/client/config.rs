@@ -55,17 +55,17 @@ mod tests {
     fn test_parse_valid_config() {
         let yaml = r#"
         client:
-          user_name: "zebra123"
-          hash_pass: "asfdgfhgdQESHZDJXK"
-          user_token: "12345678756432134567"
-          validate_server_repo: true
-          default_server:
-            server_ip: 127.0.0.1
-            auto_connect: true
-          room_aliases:
-            friends: elephant321
-            work: anon
-            hacker_arena: test
+            user_name: "zebra123"
+            hash_pass: "asfdgfhgdQESHZDJXK"
+            user_token: "12345678756432134567"
+            validate_server_repo: true
+            default_server:
+                server_ip: 127.0.0.1
+                auto_connect: true
+            room_aliases:
+                friends: "elephant321"
+                work: "anon"
+                hacker_arena: "test"
         "#;
 
         // Parse the input config, should be some
@@ -121,6 +121,40 @@ mod tests {
         assert_eq!(
             config.room_aliases.get("friends"),
             Some(&"elephant321".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_valid_all_aliases_found() {
+        let yaml = r#"
+        client:
+            user_name: "zebra123"
+            hash_pass: "asfdgfhgdQESHZDJXK"
+            user_token: "12345678756432134567"
+            validate_server_repo: true
+            default_server:
+                server_ip: 127.0.0.1
+                auto_connect: true
+            room_aliases:
+                friends: "elephant321"
+                work: "anon"
+                hacker_arena: "test"
+        "#;
+
+        // Parse the input config, should be some
+        let result = parse_client_config_yml((&yaml).to_string());
+        assert!(result.is_some());
+        let config = result.unwrap();
+
+        assert_eq!(
+            config.room_aliases.get("friends"),
+            Some(&"elephant321".to_string())
+        );
+        assert_eq!(config.room_aliases.get("work"), Some(&"anon".to_string()));
+
+        assert_eq!(
+            config.room_aliases.get("hacker_arena"),
+            Some(&"test".to_string())
         );
     }
 
