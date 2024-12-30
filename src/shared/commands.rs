@@ -1,6 +1,6 @@
 use super::command::Command;
 
-struct Commands {
+pub struct Commands {
     list: Vec<Command>,
 }
 
