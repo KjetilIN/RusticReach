@@ -41,8 +41,16 @@ pub struct GeneralServerConfig {
     #[serde(default = "default_server_version")]
     server_version: String,
 
+    #[serde(default)]
     welcome_message: Option<String>,
 
     #[serde(default = "default_max_users")]
     max_user_count: usize,
+}
+
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ServerConfig{
+    admin: AdminConfig,
+    general: GeneralServerConfig
 }
