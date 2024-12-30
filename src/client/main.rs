@@ -30,6 +30,18 @@ async fn connect(server_ip: String, server_port: String) {
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
         let mut cmd_rx = UnboundedReceiverStream::new(cmd_rx);
 
+        // Format the websocket url
+        let ws_url = format!("ws://{server_ip}:{server_port}/ws");
+
+        println!("{} Trying to connect to {} ...", *INFO_LOG, ws_url);
+
+        // Connect to the server
+        let (res, mut ws) = awc::Client::new().ws(ws_url).connect().await.unwrap_or_else(|err|{
+            println!("{} Failed to connect to {}, {}", *ERROR_LOG, server_ip, err);
+            exit(1)
+        });
+
+
         // run blocking terminal input reader on a separate thread
         let input_thread = thread::spawn(move || loop {
             let mut cmd = String::with_capacity(32);
@@ -52,14 +64,6 @@ async fn connect(server_ip: String, server_port: String) {
             // Send ...
             cmd_tx.send(cmd).unwrap();
         });
-
-        // Format the websocket url
-        let ws_url = format!("ws://{server_ip}:{server_port}/ws");
-
-        println!("{} Trying to connect to {} ...", *INFO_LOG, ws_url);
-
-        // Connect to the server
-        let (res, mut ws) = awc::Client::new().ws(ws_url).connect().await.unwrap();
 
         println!("{} response: {res:?}", *INFO_LOG);
 
@@ -182,11 +186,20 @@ pub fn validate_args() -> Result<ClientConfig, ()> {
 
 #[tokio::main]
 async fn main() {
-    let client_config = validate_args().unwrap_or_else(|_| {
+    let client_config: ClientConfig = validate_args().unwrap_or_else(|_| {
         exit(1);
     });
 
     println!("{} Client config parsed", *INFO_LOG);
+
+    // If a default server and auto connect is set to true, then do connection
+    if let Some(server_options) = client_config.get_default_server() {
+        if server_options.should_auto_connect(){
+            println!("{} Auto connecting to default server...", *INFO_LOG);
+            connect(server_options.ip(), DEFAULT_SERVER_PORT.to_string()).await;
+        }
+        println!("{} Default server detected. Use /connect (without args) to connect to the server.", *INFO_LOG);
+    }
 
     // Infinite input loop
     loop {

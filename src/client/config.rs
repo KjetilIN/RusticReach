@@ -19,12 +19,27 @@ pub struct ClientConfig {
     room_aliases: HashMap<String, String>,
 }
 
+impl ClientConfig {
+    pub fn get_default_server(&self) -> Option<&DefaultServer> {
+        self.default_server.as_ref()
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DefaultServer {
     server_ip: String,
 
     #[serde(default)]
     auto_connect: bool,
+}
+
+impl DefaultServer {
+    pub fn ip(&self) -> String{
+        self.server_ip.clone()
+    }
+    pub fn should_auto_connect(&self) -> bool{
+        self.auto_connect
+    }
 }
 
 pub fn parse_client_config(file_path: &str) -> Option<ClientConfig> {
