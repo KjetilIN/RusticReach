@@ -1,7 +1,10 @@
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::constants::MESSAGE_COMMAND_SYMBOL;
+use crate::{
+    client::state::ClientState,
+    utils::{constants::MESSAGE_COMMAND_SYMBOL, time::get_time_string},
+};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -60,6 +63,18 @@ pub struct ChatMessage {
 }
 
 impl ChatMessage {
+    pub fn create(client_state: &ClientState, message_content: String) -> Result<Self, ()> {
+        if client_state.room.is_none() {
+            return Err(());
+        }
+        Ok(Self {
+            sender: client_state.user_name.clone(),
+            content: message_content,
+            room: client_state.room.clone().unwrap(),
+            time_stamp: get_time_string(),
+        })
+    }
+
     pub fn format(&self) -> String {
         let user_name_color: (u8, u8, u8) = (255, 0, 140);
 
