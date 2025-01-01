@@ -3,12 +3,12 @@ use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 use actix_ws::Message;
 use futures_util::StreamExt as _;
 use rustic_reach::{
-    core::user::{User, Users},
+    core::{messages::{ChatMessage, ClientMessage}, user::{User, Users}},
     server::{
         handlers::ws_handlers::{handle_join, handle_leave, handle_name},
         room::Rooms,
     },
-    utils::constants::ERROR_LOG,
+    utils::constants::{ERROR_LOG, INFO_LOG, WARNING_LOG},
 };
 use std::{
     collections::HashMap,
@@ -42,13 +42,51 @@ async fn ws(
         let users = users.clone();
 
         async move {
-            let mut current_room: Option<String> = None;
-
             while let Some(Ok(msg)) = msg_stream.next().await {
                 match msg {
                     Message::Text(text) => {
                         // TODO: deserialize message from server
                         println!("Message: {text}");
+                        let chat_msg: ClientMessage = match serde_json::from_str(&text){
+                            Ok(chat) => chat,
+                            Err(_) => {
+                                println!("{} Ignored: {}", *WARNING_LOG, text);
+                                continue;
+                            },
+                        };
+
+                        // Handle the message differently based on command or not
+                        match chat_msg{
+                            ClientMessage::Command(command) => {
+                                // Info log about message
+                                match command {
+                                    rustic_reach::core::messages::Command::SetName(new_name) => {
+                                        // Changing the name
+                                        current_user.set_user_name(new_name);
+
+                                        // TODO: respond
+                                    },
+                                    rustic_reach::core::messages::Command::JoinRoom(room) => {
+                                        // TODO: reconnect to another server logic
+                                        println!("{} Reconnecting to another server has not been implemented", *WARNING_LOG);
+                                    },
+                                    rustic_reach::core::messages::Command::LeaveRoom => {
+                                        current_user.leave_room(&user_id, &rooms).await;
+                                    },
+                                }
+                            },
+                            ClientMessage::Chat(chat_message) => {
+                                // Log that a chat message has been received 
+                                println!("{} {} wrote a message in {}", *INFO_LOG, chat_message.sender, chat_message.room);
+
+                                // Broadcast this message to the room
+                                // TODO: make broadcast message handle closed channels
+                                let _ = current_user.broadcast_message(&chat_message, &rooms, &users).await;
+                            },
+                        }
+
+                        
+
                     }
 
                     Message::Ping(bytes) => {
@@ -64,8 +102,8 @@ async fn ws(
             }
 
             // Clean up when the user disconnects
-            if let Some(room) = &current_room {
-                current_user.leave_room(&user_id, room, &rooms).await;
+            if let Some(_) = &current_user.take_room() {
+                current_user.leave_room(&user_id, &rooms).await;
             }
 
             users.lock().unwrap().remove(&user_id);

@@ -5,7 +5,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{core::messages::ClientMessage, server::room::Rooms};
+use crate::server::room::Rooms;
+
+use super::messages::ChatMessage;
 
 // Set of users for the server
 pub type Users = Arc<Mutex<HashMap<String, User>>>;
@@ -57,6 +59,10 @@ impl User {
         self.current_room_name.clone()
     }
 
+    pub fn take_room(&mut self) -> Option<String>{
+        self.current_room_name.take()
+    }
+
     pub fn set_room(&mut self, room_name: String) {
         self.current_room_name = Some(room_name);
     }
@@ -73,24 +79,29 @@ impl User {
         self.current_room_name = Some(room_name.to_owned());
     }
 
-    pub async fn leave_room(&mut self, user_id: &str, room_name: &str, rooms: &web::Data<Rooms>) {
+    pub async fn leave_room(&mut self, user_id: &str, rooms: &web::Data<Rooms>) {
         // Acquire lock
         let mut rooms = rooms.lock().unwrap();
+        if let Some(current_room) = &self.current_room_name.clone(){
+            // If the room is a valid room!
+            if let Some(room) = rooms.get_mut(current_room) {
+                // Remove the client from the room
+                room.remove(user_id);
+                
+                self.current_room_name = None; 
 
-        // If the room is a valid room!
-        if let Some(room) = rooms.get_mut(room_name) {
-            // remove the client from the room
-            room.remove(user_id);
-            self.current_room_name = None;
-            if room.is_empty() {
-                rooms.remove(room_name);
+                // Remove the room if there is no user here
+                // TODO: make this optional
+                if room.is_empty() {
+                    rooms.remove(current_room);
+                }
             }
         }
     }
 
     pub async fn broadcast_message(
         &self,
-        message: &str,
+        message: &ChatMessage,
         rooms: &web::Data<Rooms>,
         users: &web::Data<Users>,
     ) {
@@ -107,26 +118,12 @@ impl User {
             for user_id in room {
                 if *user_id != self.user_id {
                     if let Some(client) = users.get_mut(user_id) {
-                        let _ = client.get_session().text(format!("{}", message)).await;
+                        let _ = client.get_session().text(format!("{}", message.format())).await;
                     }
                 }
             }
         }
     }
 
-    pub async fn handle_client_msg(
-        &self,
-        msg: ClientMessage,
-        rooms: &web::Data<Rooms>,
-        users: &web::Data<Users>,
-    ) {
-        match msg {
-            ClientMessage::Command(_command) => todo!(),
-            ClientMessage::Chat(chat) => {
-                // Broadcast message to all users in the given room
-                let formatted_msg = chat.format();
-                self.broadcast_message(&formatted_msg, rooms, users).await;
-            }
-        }
-    }
+    
 }

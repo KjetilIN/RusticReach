@@ -20,8 +20,8 @@ pub async fn handle_join(
     let room_name = text.strip_prefix("/join ").unwrap().to_string();
 
     // Leave the current room if necessary
-    if let Some(room) = &current_room {
-        user.leave_room(&user_id, room, &rooms).await;
+    if current_room.is_some() {
+        user.leave_room(&user_id, &rooms).await;
     }
 
     // Log join message
@@ -49,8 +49,8 @@ pub async fn handle_leave(
     rooms: &WebRoom,
 ) {
     // Leave the current room
-    if let Some(room) = current_room.take() {
-        user.leave_room(&user_id, &room, &rooms).await;
+    if let Some(_) = current_room.take() {
+        user.leave_room(&user_id, &rooms).await;
         session.text("Left the room").await.unwrap();
     } else {
         session.text("You are not in any room").await.unwrap();

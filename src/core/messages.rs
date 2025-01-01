@@ -56,9 +56,9 @@ impl Command {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ChatMessage {
-    sender: String,
+    pub sender: String,
     content: String,
-    room: String,
+    pub room: String,
     time_stamp: String,
 }
 

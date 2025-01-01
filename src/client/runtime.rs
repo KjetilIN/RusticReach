@@ -17,7 +17,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::{
     client::state::ClientState,
-    core::messages::{ChatMessage, Command},
+    core::messages::{ChatMessage, ClientMessage, Command},
     utils::{
         constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
         formatted_messages::format_message_string,
@@ -32,7 +32,7 @@ type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
 fn handle_message_commands(
     input: String,
     client_state: &mut ClientState,
-    message_tx: &mpsc::UnboundedSender<ChatMessage>,
+    message_tx: &mpsc::UnboundedSender<ClientMessage>,
 ) {
     // Message command only if the command starts with the command symbol
     // This allows users to execute commands when they are messaging
@@ -69,9 +69,11 @@ fn handle_message_commands(
                     println!("Sending msg as chat struct!");
 
                     // Send message
-                    message_tx.send(message).unwrap_or_else(|err| {
-                        println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
-                    });
+                    message_tx
+                        .send(ClientMessage::Chat(message))
+                        .unwrap_or_else(|err| {
+                            println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+                        });
                 }
                 Err(_) => {
                     println!(
@@ -87,7 +89,7 @@ fn handle_message_commands(
 fn handle_user_input(
     cmd_tx: mpsc::UnboundedSender<String>,
     client_state: &mut ClientState,
-    message_tx: &mpsc::UnboundedSender<ChatMessage>,
+    message_tx: &mpsc::UnboundedSender<ClientMessage>,
 ) {
     loop {
         let mut cmd = String::with_capacity(32);
@@ -112,7 +114,7 @@ async fn handle_incoming_messages(
     stream: &mut WsFramedStream,
     sink: &mut WsFramedSink,
     cmd_rx: &mut UnboundedReceiverStream<String>,
-    message_rx: &mut UnboundedReceiverStream<ChatMessage>,
+    message_rx: &mut UnboundedReceiverStream<ClientMessage>,
 ) {
     loop {
         select! {
@@ -164,7 +166,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
 
         // Creating another unbounded channel for sending message
         let (message_tx, message_rx) = mpsc::unbounded_channel();
-        let mut message_rx: UnboundedReceiverStream<ChatMessage> =
+        let mut message_rx: UnboundedReceiverStream<ClientMessage> =
             UnboundedReceiverStream::new(message_rx);
 
         // Formatting the websocket connection string
