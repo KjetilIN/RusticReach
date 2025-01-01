@@ -5,7 +5,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::room::Rooms;
+
+use crate::{core::messages::ClientMessage, server::room::Rooms};
 
 // Set of users for the server
 pub type Users = Arc<Mutex<HashMap<String, User>>>;
@@ -110,6 +111,22 @@ impl User {
                         let _ = client.get_session().text(format!("{}", message)).await;
                     }
                 }
+            }
+        }
+    }
+
+    pub async fn handle_client_msg(
+        &self,
+        msg: ClientMessage,
+        rooms: &web::Data<Rooms>,
+        users: &web::Data<Users>,
+    ) {
+        match msg {
+            ClientMessage::Command(_command) => todo!(),
+            ClientMessage::Chat(chat) => {
+                // Broadcast message to all users in the given room
+                let formatted_msg = chat.format();
+                self.broadcast_message(&formatted_msg, rooms, users).await;
             }
         }
     }

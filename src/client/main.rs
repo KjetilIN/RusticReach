@@ -3,7 +3,7 @@ use rustic_reach::{
         client_runtime::connect,
         config::{parse_client_config, ClientConfig},
     },
-    shared::constants::{
+    utils::constants::{
         COMMAND_LINE_SYMBOL, DEFAULT_SERVER_PORT, ERROR_LOG, INFO_LOG, WARNING_LOG,
     },
 };

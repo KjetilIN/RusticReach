@@ -17,7 +17,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::{
     client::state::ClientState,
-    shared::{
+    utils::{
         cmd::command::CommandType,
         constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
         formatted_messages::format_message_string,

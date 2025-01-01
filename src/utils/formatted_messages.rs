@@ -2,7 +2,7 @@ use chrono::{DateTime, Local};
 use colored::Colorize;
 use std::time::SystemTime;
 
-use crate::shared::constants::SELF_USER;
+use crate::utils::constants::SELF_USER;
 
 pub fn format_message_string(
     user_name: &str,
