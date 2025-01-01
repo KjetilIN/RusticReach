@@ -17,8 +17,8 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::{
     client::state::ClientState,
+    core::messages::Command,
     utils::{
-        cmd::command::CommandType,
         constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
         formatted_messages::format_message_string,
     },
@@ -38,27 +38,19 @@ fn handle_message_commands(
     // This allows users to execute commands when they are messaging
     if input.starts_with(MESSAGE_COMMAND_SYMBOL) {
         // Handle given command
-        if let Some(command_type) = CommandType::from_str(input.as_str()) {
-            match command_type {
-                CommandType::Join => {
-                    let input_parts: Vec<&str> = input.split_ascii_whitespace().collect();
-                    if input_parts.len() == 2 {
-                        println!("Joining room: {}", client_state.user_name);
-                        client_state.room = Some(input_parts[1].to_owned());
-                    }
+        if let Some(command) = Command::from_str(input.as_str()) {
+            match command {
+                Command::SetName(new_name) => {
+                    println!("{} Client state change name to {}", *INFO_LOG, new_name);
+                    client_state.user_name = new_name;
                 }
-                CommandType::Leave => {
-                    println!("Leave server");
+                Command::JoinRoom(room_name) => {
+                    println!("{} Change room to {}", *INFO_LOG, room_name);
+                    client_state.room = Some(room_name);
+                }
+                Command::LeaveRoom => {
+                    println!("{} Client state, user left room", *INFO_LOG);
                     client_state.room = None;
-                }
-                CommandType::Name => {
-                    println!("Command name");
-                    let input_parts: Vec<&str> = input.split_ascii_whitespace().collect();
-                    println!("{:?}", input_parts);
-                    if input_parts.len() == 2 {
-                        println!("Rename: Client state username: {}", client_state.user_name);
-                        client_state.user_name = input_parts[1].to_owned();
-                    }
                 }
             }
         } else {

@@ -8,10 +8,7 @@ use rustic_reach::{
         handlers::ws_handlers::{handle_join, handle_leave, handle_name},
         room::Rooms,
     },
-    utils::{
-        cmd::{command::CommandType, message_commands::MESSAGE_COMMANDS},
-        constants::ERROR_LOG,
-    },
+    utils::constants::ERROR_LOG,
 };
 use std::{
     collections::HashMap,
@@ -50,53 +47,8 @@ async fn ws(
             while let Some(Ok(msg)) = msg_stream.next().await {
                 match msg {
                     Message::Text(text) => {
-                        let text = text.trim();
-                        println!("Message: {}", text);
-
-                        // Check if given message is an command
-                        if let Some(command) = MESSAGE_COMMANDS.retrieve_command(text.to_owned()) {
-                            if let Some(command_type) = command.get_type() {
-                                match command_type {
-                                    CommandType::Join => {
-                                        handle_join(
-                                            &mut session,
-                                            text.to_owned(),
-                                            &mut current_room,
-                                            &mut current_user,
-                                            &user_id,
-                                            &rooms,
-                                        )
-                                        .await
-                                    }
-                                    CommandType::Leave => {
-                                        handle_leave(
-                                            &mut session,
-                                            &mut current_room,
-                                            &mut current_user,
-                                            &user_id,
-                                            &rooms,
-                                        )
-                                        .await
-                                    }
-                                    CommandType::Name => {
-                                        handle_name(
-                                            &mut session,
-                                            text.to_owned(),
-                                            &mut current_user,
-                                        )
-                                        .await
-                                    }
-                                }
-                            } else {
-                                // Command detected, should not happen
-                                println!("{} Message command not included in list of valid commands: {text}", *ERROR_LOG);
-                            }
-                        } else {
-                            // Message was not a command: broadcast it!
-                            if current_user.has_joined_room() {
-                                current_user.broadcast_message(&text, &rooms, &users).await;
-                            }
-                        }
+                        // TODO: deserialize message from server
+                        println!("Message: {text}");
                     }
 
                     Message::Ping(bytes) => {

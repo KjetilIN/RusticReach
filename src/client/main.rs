@@ -1,7 +1,7 @@
 use rustic_reach::{
     client::{
-        runtime::connect,
         config::{parse_client_config, ClientConfig},
+        runtime::connect,
     },
     utils::constants::{
         COMMAND_LINE_SYMBOL, DEFAULT_SERVER_PORT, ERROR_LOG, INFO_LOG, WARNING_LOG,

@@ -1,6 +1,8 @@
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
+use crate::utils::constants::MESSAGE_COMMAND_SYMBOL;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
     Command(Command),
@@ -12,6 +14,41 @@ pub enum Command {
     SetName(String),
     JoinRoom(String),
     LeaveRoom,
+}
+
+impl Command {
+    pub fn from_str(input: &str) -> Option<Self> {
+        if input.is_empty() || !input.starts_with(MESSAGE_COMMAND_SYMBOL) {
+            return None;
+        }
+
+        // Split the input into different parts
+        let parts: Vec<&str> = input.split_ascii_whitespace().collect();
+
+        // Based on the first part, we have to parse the command
+        match parts[0] {
+            "/join" => {
+                if parts.len() == 2 {
+                    let room_name = parts[1];
+                    return Some(Command::JoinRoom(room_name.to_owned()));
+                }
+            }
+            "/leave" => {
+                if parts.len() == 0 {
+                    return Some(Command::LeaveRoom);
+                }
+            }
+            "/name" => {
+                if parts.len() == 2 {
+                    let new_name = parts[1];
+                    return Some(Command::SetName(new_name.to_owned()));
+                }
+            }
+            _ => return None,
+        }
+
+        return None;
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
