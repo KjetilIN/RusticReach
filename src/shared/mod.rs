@@ -1,4 +1,3 @@
-pub mod command;
-pub mod commands;
+pub mod cmd;
 pub mod constants;
 pub mod formatted_messages;

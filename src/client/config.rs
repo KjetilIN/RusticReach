@@ -35,6 +35,10 @@ impl ClientConfig {
     pub fn get_default_server(&self) -> Option<&DefaultServer> {
         self.default_server.as_ref()
     }
+
+    pub fn get_validate_server(&self) -> bool {
+        self.validate_server_repo
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

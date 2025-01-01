@@ -3,7 +3,9 @@ use rustic_reach::{
         client_runtime::connect,
         config::{parse_client_config, ClientConfig},
     },
-    shared::constants::{COMMAND_LINE_SYMBOL, DEFAULT_SERVER_PORT, ERROR_LOG, INFO_LOG},
+    shared::constants::{
+        COMMAND_LINE_SYMBOL, DEFAULT_SERVER_PORT, ERROR_LOG, INFO_LOG, WARNING_LOG,
+    },
 };
 use std::{
     env,
@@ -45,6 +47,12 @@ async fn main() {
     });
 
     println!("{} Client config parsed", *INFO_LOG);
+
+    // Check if we are asked to validate the server checksum
+    if client_config.get_validate_server() {
+        // TODO: implement checksum validation of server repo
+        println!("{} Validating server repo not implemented!", *WARNING_LOG);
+    }
 
     // If a default server and auto connect is set to true, then do connection
     if let Some(server_options) = client_config.get_default_server() {
