@@ -5,22 +5,22 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::core::user::User;
+use crate::{
+    core::{messages::ServerMessage, user::User},
+    utils::{constants::ERROR_LOG, traits::JsonSerializing},
+};
 
 pub type WebRoom = web::Data<Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>>;
 
 pub async fn handle_join(
     session: &mut Session,
-    text: String,
-    current_room: &mut Option<String>,
+    room_name: String,
     user: &mut User,
     user_id: &String,
     rooms: &WebRoom,
 ) {
-    let room_name = text.strip_prefix("/join ").unwrap().to_string();
-
     // Leave the current room if necessary
-    if current_room.is_some() {
+    if user.has_joined_room() {
         user.leave_room(&user_id, &rooms).await;
     }
 
@@ -33,12 +33,6 @@ pub async fn handle_join(
 
     // Join the new room
     user.join_room(&user_id, &room_name, &rooms).await;
-
-    // Notify the user that it has joined the room
-    session
-        .text(format!("Joined room: {}", room_name))
-        .await
-        .unwrap();
 }
 
 pub async fn handle_leave(

@@ -3,12 +3,18 @@ use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 use actix_ws::Message;
 use futures_util::StreamExt as _;
 use rustic_reach::{
-    core::{messages::{ChatMessage, ClientMessage}, user::{User, Users}},
+    core::{
+        messages::{ChatMessage, ClientMessage, ServerMessage},
+        user::{self, User, Users},
+    },
     server::{
         handlers::ws_handlers::{handle_join, handle_leave, handle_name},
         room::Rooms,
     },
-    utils::constants::{ERROR_LOG, INFO_LOG, WARNING_LOG},
+    utils::{
+        constants::{ERROR_LOG, INFO_LOG, WARNING_LOG},
+        traits::SendServerReply,
+    },
 };
 use std::{
     collections::HashMap,
@@ -47,16 +53,16 @@ async fn ws(
                     Message::Text(text) => {
                         // TODO: deserialize message from server
                         println!("Message: {text}");
-                        let chat_msg: ClientMessage = match serde_json::from_str(&text){
+                        let chat_msg: ClientMessage = match serde_json::from_str(&text) {
                             Ok(chat) => chat,
                             Err(_) => {
                                 println!("{} Ignored: {}", *WARNING_LOG, text);
                                 continue;
-                            },
+                            }
                         };
 
                         // Handle the message differently based on command or not
-                        match chat_msg{
+                        match chat_msg {
                             ClientMessage::Command(command) => {
                                 // Info log about message
                                 match command {
@@ -64,29 +70,52 @@ async fn ws(
                                         // Changing the name
                                         current_user.set_user_name(new_name);
 
-                                        // TODO: respond
-                                    },
+                                        // Send update message
+                                        let msg = ServerMessage::state_update(
+                                            &current_user,
+                                            "New user name set",
+                                        );
+                                        msg.send(&mut session).await;
+                                    }
                                     rustic_reach::core::messages::Command::JoinRoom(room) => {
-                                        // TODO: reconnect to another server logic
-                                        println!("{} Reconnecting to another server has not been implemented", *WARNING_LOG);
-                                    },
+                                        handle_join(
+                                            &mut session,
+                                            room,
+                                            &mut current_user,
+                                            &user_id,
+                                            &rooms,
+                                        )
+                                        .await;
+
+                                        // Send success message
+                                        let msg = ServerMessage::successful_command("Joined room!");
+                                        msg.send(&mut session).await;
+                                    }
                                     rustic_reach::core::messages::Command::LeaveRoom => {
+                                        // Leave room
                                         current_user.leave_room(&user_id, &rooms).await;
-                                    },
+
+                                        // Send update message
+                                        let msg =
+                                            ServerMessage::state_update(&current_user, "Left room");
+                                        msg.send(&mut current_user.get_session()).await;
+                                    }
                                 }
-                            },
+                            }
                             ClientMessage::Chat(chat_message) => {
-                                // Log that a chat message has been received 
-                                println!("{} {} wrote a message in {}", *INFO_LOG, chat_message.sender, chat_message.room);
+                                // Log that a chat message has been received
+                                println!(
+                                    "{} {} wrote a message in {}",
+                                    *INFO_LOG, chat_message.sender, chat_message.room
+                                );
 
                                 // Broadcast this message to the room
                                 // TODO: make broadcast message handle closed channels
-                                let _ = current_user.broadcast_message(&chat_message, &rooms, &users).await;
-                            },
+                                let _ = current_user
+                                    .broadcast_message(&chat_message, &rooms, &users)
+                                    .await;
+                            }
                         }
-
-                        
-
                     }
 
                     Message::Ping(bytes) => {

@@ -59,7 +59,7 @@ impl User {
         self.current_room_name.clone()
     }
 
-    pub fn take_room(&mut self) -> Option<String>{
+    pub fn take_room(&mut self) -> Option<String> {
         self.current_room_name.take()
     }
 
@@ -82,13 +82,13 @@ impl User {
     pub async fn leave_room(&mut self, user_id: &str, rooms: &web::Data<Rooms>) {
         // Acquire lock
         let mut rooms = rooms.lock().unwrap();
-        if let Some(current_room) = &self.current_room_name.clone(){
+        if let Some(current_room) = &self.current_room_name.clone() {
             // If the room is a valid room!
             if let Some(room) = rooms.get_mut(current_room) {
                 // Remove the client from the room
                 room.remove(user_id);
-                
-                self.current_room_name = None; 
+
+                self.current_room_name = None;
 
                 // Remove the room if there is no user here
                 // TODO: make this optional
@@ -118,12 +118,13 @@ impl User {
             for user_id in room {
                 if *user_id != self.user_id {
                     if let Some(client) = users.get_mut(user_id) {
-                        let _ = client.get_session().text(format!("{}", message.format())).await;
+                        let _ = client
+                            .get_session()
+                            .text(format!("{}", message.format()))
+                            .await;
                     }
                 }
             }
         }
     }
-
-    
 }

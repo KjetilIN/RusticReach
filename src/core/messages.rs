@@ -1,10 +1,17 @@
+use actix_ws::Session;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     client::state::ClientState,
-    utils::{constants::MESSAGE_COMMAND_SYMBOL, time::get_time_string},
+    utils::{
+        constants::MESSAGE_COMMAND_SYMBOL,
+        time::get_time_string,
+        traits::{JsonSerializing, SendServerReply},
+    },
 };
+
+use super::user::User;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -54,7 +61,7 @@ impl Command {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChatMessage {
     pub sender: String,
     content: String,
@@ -90,7 +97,16 @@ impl ChatMessage {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CommandResult {
+    success: bool,
+    message: String,
+}
+
+impl JsonSerializing for CommandResult {}
+impl SendServerReply for CommandResult {}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerMessage {
     CommandResult {
         success: bool,
@@ -99,6 +115,38 @@ pub enum ServerMessage {
     StateUpdate {
         username: Option<String>,
         current_room: Option<String>,
+        message: String,
     },
-    ChatMessage,
+    Chat(ChatMessage),
 }
+
+impl ServerMessage {
+    pub fn failed_command(message: &str) -> Self {
+        return Self::CommandResult {
+            success: false,
+            message: message.to_string(),
+        };
+    }
+
+    pub fn successful_command(message: &str) -> Self {
+        return Self::CommandResult {
+            success: true,
+            message: message.to_string(),
+        };
+    }
+
+    pub fn from_chat_msg(chat_message: ChatMessage) -> Self {
+        return Self::Chat(chat_message);
+    }
+
+    pub fn state_update(user: &User, message: &str) -> Self {
+        Self::StateUpdate {
+            username: Some(user.get_user_name().to_owned()),
+            current_room: user.get_room_name(),
+            message: message.to_string(),
+        }
+    }
+}
+
+impl JsonSerializing for ServerMessage {}
+impl SendServerReply for ServerMessage {}
