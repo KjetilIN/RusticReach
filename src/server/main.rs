@@ -3,13 +3,15 @@ use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 use actix_ws::Message;
 use futures_util::StreamExt as _;
 use rustic_reach::{
-    core::user::{User, Users}, server::{
+    core::user::{User, Users},
+    server::{
         handlers::ws_handlers::{handle_join, handle_leave, handle_name},
         room::Rooms,
-    }, utils::{
+    },
+    utils::{
         cmd::{command::CommandType, message_commands::MESSAGE_COMMANDS},
         constants::ERROR_LOG,
-    }
+    },
 };
 use std::{
     collections::HashMap,

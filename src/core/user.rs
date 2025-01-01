@@ -5,7 +5,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-
 use crate::{core::messages::ClientMessage, server::room::Rooms};
 
 // Set of users for the server
