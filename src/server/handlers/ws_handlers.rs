@@ -25,10 +25,9 @@ pub async fn handle_join(
     }
 
     // Log join message
-    //TODO: FIX this
     println!(
         "[INFO] User {} is joining in room: {}",
-        <Option<String> as Clone>::clone(&user.get_user_name()).unwrap(),
+        &user.get_user_name(),
         room_name
     );
 
@@ -70,6 +69,7 @@ pub async fn handle_name(session: &mut Session, text: String, user: &mut User) {
                 .unwrap();
         } else {
             // Set the user name
+            println!("Renamed user: {} to {}", user.get_user_name(), user_name);
             user.set_user_name(user_name.to_owned());
         }
     } else {

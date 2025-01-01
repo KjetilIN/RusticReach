@@ -40,8 +40,12 @@ impl User {
         self.session.clone().unwrap()
     }
 
-    pub fn get_user_name(&self) -> &Option<String> {
-        &self.user_name
+    pub fn get_user_name(&self) -> &str {
+        if let Some(name) = &self.user_name {
+            return &name;
+        }
+
+        return "unknown";
     }
 
     pub fn get_id(&self) -> &str {
@@ -103,14 +107,7 @@ impl User {
             for user_id in room {
                 if *user_id != self.user_id {
                     if let Some(client) = users.get_mut(user_id) {
-                        let _ = client
-                            .get_session()
-                            .text(format!(
-                                "[{}]: {}",
-                                self.user_name.clone().unwrap_or("unknown".to_string()),
-                                message
-                            ))
-                            .await;
+                        let _ = client.get_session().text(format!("{}", message)).await;
                     }
                 }
             }

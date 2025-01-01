@@ -95,11 +95,6 @@ async fn ws(
                             // Message was not a command: broadcast it!
                             if current_user.has_joined_room() {
                                 current_user.broadcast_message(&text, &rooms, &users).await;
-                            } else {
-                                session
-                                    .text("Join a room first with /join <room_name>")
-                                    .await
-                                    .unwrap();
                             }
                         }
                     }

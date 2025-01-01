@@ -5,6 +5,21 @@ pub enum CommandType {
     Name,
 }
 
+impl CommandType {
+    pub fn from_str(input: &str) -> Option<Self> {
+        let inputs: Vec<&str> = input.split_ascii_whitespace().collect();
+        if input.len() > 1 {
+            return match inputs[0] {
+                "/join" => Some(CommandType::Join),
+                "/leave" => Some(CommandType::Leave),
+                "/name" => Some(CommandType::Name),
+                _ => None,
+            };
+        }
+        return None;
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Command {
     // The trigger is the first thing that is typed for the user

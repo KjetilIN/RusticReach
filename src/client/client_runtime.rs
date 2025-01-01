@@ -15,9 +15,13 @@ use futures_util::{
 use tokio::{select, sync::mpsc, task::LocalSet};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use crate::shared::{
-    constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
-    formatted_messages::format_message_string,
+use crate::{
+    client::state::ClientState,
+    shared::{
+        cmd::command::CommandType,
+        constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
+        formatted_messages::format_message_string,
+    },
 };
 
 use super::config::ClientConfig;
@@ -27,40 +31,61 @@ type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
 
 fn handle_message_commands(
     input: String,
-    client_config: &ClientConfig,
-    room_name: &mut Option<String>,
+    client_state: &mut ClientState,
     message_tx: &mpsc::UnboundedSender<String>,
 ) {
     // Message command only if the command starts with the command symbol
     // This allows users to execute commands when they are messaging
     if input.starts_with(MESSAGE_COMMAND_SYMBOL) {
         // Handle given command
-        match input.as_str() {
-            "/disconnect" => {
-                println!("{} Disconnecting...", *INFO_LOG);
+        if let Some(command_type) = CommandType::from_str(input.as_str()) {
+            match command_type {
+                CommandType::Join => {
+                    let input_parts: Vec<&str> = input.split_ascii_whitespace().collect();
+                    if input_parts.len() == 2 {
+                        println!("Joining room: {}", client_state.user_name);
+                        client_state.room = Some(input_parts[1].to_owned());
+                    }
+                }
+                CommandType::Leave => {
+                    println!("Leave server");
+                    client_state.room = None;
+                }
+                CommandType::Name => {
+                    println!("Command name");
+                    let input_parts: Vec<&str> = input.split_ascii_whitespace().collect();
+                    println!("{:?}", input_parts);
+                    if input_parts.len() == 2 {
+                        println!("Rename: Client state username: {}", client_state.user_name);
+                        client_state.user_name = input_parts[1].to_owned();
+                    }
+                }
             }
-            _ => {
-                println!("{} Unknown command", *ERROR_LOG);
-            }
+        } else {
+            println!("{} Unknown command", *ERROR_LOG)
         }
     } else {
-        // The input is text and should be sent to the server
-        let user_name = client_config.get_user_name(room_name);
-        let message = format_message_string(user_name, (250, 0, 0), &input);
+        if client_state.room.is_none() {
+            println!("{} Please join a room!", *ERROR_LOG);
+        } else {
+            // The input is text and should be sent to the server
+            // TODO: refactor this!!
+            let user_name = &client_state.user_name;
+            let out_going_message = format_message_string(&user_name, (250, 0, 0), &input);
 
-        // Send message
-        message_tx.send(message).unwrap_or_else(|err| {
-            println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
-        });
+            // Send message
+            message_tx.send(out_going_message).unwrap_or_else(|err| {
+                println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+            });
+        }
     }
 }
 
 fn handle_user_input(
     cmd_tx: mpsc::UnboundedSender<String>,
-    client_config: Arc<ClientConfig>,
+    client_state: &mut ClientState,
     message_tx: &mpsc::UnboundedSender<String>,
 ) {
-    let mut room_name: Option<String> = None;
     loop {
         let mut cmd = String::with_capacity(32);
 
@@ -72,7 +97,7 @@ fn handle_user_input(
             return;
         }
 
-        handle_message_commands(cmd.clone(), &client_config, &mut room_name, message_tx);
+        handle_message_commands(cmd.clone(), client_state, message_tx);
         if let Err(err) = cmd_tx.send(cmd) {
             println!("{} Failed to send command: {}", *ERROR_LOG, err);
             exit(1);
@@ -101,11 +126,13 @@ async fn handle_incoming_messages(
                 _ => {}
             },
             Some(cmd) = cmd_rx.next() => {
+                println!("message stream");
                 if !cmd.trim().is_empty() {
                     sink.send(ws::Message::Text(cmd.into())).await.unwrap();
                 }
             },
             Some(message) = message_rx.next() => {
+                println!("message stream");
                 if !message.trim().is_empty() {
                     sink.send(ws::Message::Text(message.into())).await.unwrap();
                 }
@@ -131,7 +158,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
 
         // Formatting the websocket connection string
         let ws_url = format!("ws://{server_ip}:{server_port}/ws");
-        println!("{} Trying to connect to {} ...", *INFO_LOG, ws_url);
+        println!("{} Connecting to {} ...", *INFO_LOG, server_ip);
 
         // Connecting to the given server
         let (_, ws) = awc::Client::new()
@@ -143,13 +170,17 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
                 exit(1)
             });
 
+        // Successful connection
+        println!("{} Connected to {}!", *INFO_LOG, server_ip);
+
         // Creating a sink and stream from the websocket
         // - sink:
         // - stream:
         let (mut sink, mut stream): (WsFramedSink, WsFramedStream) = ws.split();
 
-        // Client Config to be shared between users
-        let client_config_clone = Arc::clone(&client_config);
+        // Client state to be shared between users
+        let mut client_state =
+            ClientState::new(client_config.get_user_name(&None).to_owned(), None);
 
         // Creating two threads:
         // - input thread: handle input from the user
@@ -157,7 +188,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
         // Spawn asynchronous tasks for handling input and messages
         // Spawn blocking thread for user input
         let input_thread = thread::spawn(move || {
-            handle_user_input(cmd_tx, client_config_clone, &message_tx);
+            handle_user_input(cmd_tx, &mut client_state, &message_tx);
         });
 
         // Handle incoming WebSocket messages asynchronously in LocalSet
