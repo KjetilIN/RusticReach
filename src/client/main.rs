@@ -1,6 +1,6 @@
 use rustic_reach::{
     client::{
-        client_runtime::connect,
+        runtime::connect,
         config::{parse_client_config, ClientConfig},
     },
     utils::constants::{
