@@ -20,7 +20,6 @@ use crate::{
     core::messages::{ChatMessage, ClientMessage, Command},
     utils::{
         constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
-        formatted_messages::format_message_string,
         traits::SendServerReply,
     },
 };

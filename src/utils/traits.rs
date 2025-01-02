@@ -2,8 +2,6 @@ use actix_ws::Session;
 use async_trait::async_trait;
 use serde::Serialize;
 
-use crate::utils::constants::ERROR_LOG;
-
 #[async_trait]
 pub trait JsonSerializing: Serialize + Send + Sync {
     async fn serialized(&self) -> Option<String> {

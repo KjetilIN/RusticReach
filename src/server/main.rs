@@ -4,15 +4,12 @@ use actix_ws::Message;
 use futures_util::StreamExt as _;
 use rustic_reach::{
     core::{
-        messages::{ChatMessage, ClientMessage, ServerMessage},
-        user::{self, User, Users},
+        messages::{ClientMessage, ServerMessage},
+        user::{User, Users},
     },
-    server::{
-        handlers::ws_handlers::{handle_join, handle_leave, handle_name},
-        room::Rooms,
-    },
+    server::{handlers::ws_handlers::handle_join, room::Rooms},
     utils::{
-        constants::{ERROR_LOG, INFO_LOG, WARNING_LOG},
+        constants::{INFO_LOG, WARNING_LOG},
         traits::SendServerReply,
     },
 };

@@ -5,10 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
-    core::{messages::ServerMessage, user::User},
-    utils::{constants::ERROR_LOG, traits::JsonSerializing},
-};
+use crate::core::user::User;
 
 pub type WebRoom = web::Data<Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>>;
 

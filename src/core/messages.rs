@@ -1,4 +1,3 @@
-use actix_ws::Session;
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
