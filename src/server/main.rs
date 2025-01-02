@@ -5,7 +5,7 @@ use futures_util::StreamExt as _;
 use rustic_reach::{
     core::{
         messages::{ClientMessage, ServerMessage},
-        user::{User, Users},
+        user::user::{User, Users},
     },
     server::{handlers::ws_handlers::handle_join, room::Rooms},
     utils::{

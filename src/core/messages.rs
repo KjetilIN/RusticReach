@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use super::user::User;
+use super::user::user::User;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {

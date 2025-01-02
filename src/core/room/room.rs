@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::user::User;
 use std::collections::HashMap;
 
+use crate::core::user::user::User;
 
 /// Represents any type of error that a user might have had interacting with a Room in some way
 #[derive(Debug)]
@@ -20,7 +20,7 @@ pub struct Room {
     name: String,
     capacity: usize,
     joined_users: HashMap<String, String>,
-    password_hash: Option<String>
+    password_hash: Option<String>,
 }
 
 impl Room {
@@ -60,12 +60,10 @@ impl Room {
     }
 
     /// Returns a struct that represents the information about the current room
-    pub fn info(&self) -> RoomInformation{
+    pub fn info(&self) -> RoomInformation {
         unimplemented!()
     }
 }
-
-
 
 /// Room information that any user without any privileges can see about the Room the user currently is in
 #[derive(Serialize, Deserialize, Clone)]
@@ -102,8 +100,8 @@ impl ServerRooms {
         false
     }
 
-    /// Get the given room id 
-    fn get_room_id(&self, room_name: String) -> Option<String>{
+    /// Get the given room id
+    fn get_room_id(&self, room_name: String) -> Option<String> {
         for (_, room) in &self.rooms {
             if room.name() == room_name {
                 return Some(room.id.clone());
@@ -127,8 +125,8 @@ impl ServerRooms {
     }
 
     /// Delete the given room name from the server
-    pub fn delete_room(&mut self, room_name: String){
-        if let Some(room_id) = self.get_room_id(room_name){
+    pub fn delete_room(&mut self, room_name: String) {
+        if let Some(room_id) = self.get_room_id(room_name) {
             self.rooms.remove(&room_id);
         }
     }
