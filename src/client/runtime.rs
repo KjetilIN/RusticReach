@@ -1,7 +1,7 @@
 use std::{
     io::{self, Write},
     process::exit,
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread,
 };
 
@@ -13,12 +13,16 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt as _, StreamExt,
 };
-use tokio::{select, sync::mpsc, task::LocalSet};
+use tokio::{
+    select,
+    sync::mpsc::{self, UnboundedSender},
+    task::LocalSet,
+};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::{
     client::state::ClientState,
-    core::messages::{ChatMessage, ClientMessage, Command},
+    core::messages::{ChatMessage, ClientMessage, Command, ServerMessage},
     utils::{
         constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
         terminal_ui::{self, TerminalUI},
@@ -123,6 +127,7 @@ fn handle_client_stdin(
 async fn handle_incoming_messages(
     stream: &mut WsFramedStream,
     sink: &mut WsFramedSink,
+    terminal_ui_sender: &UnboundedSender<String>,
     message_rx: &mut UnboundedReceiverStream<ClientMessage>,
 ) {
     loop {
@@ -131,7 +136,26 @@ async fn handle_incoming_messages(
                 Ok(ws::Frame::Text(frame)) => {
                     match String::from_utf8(frame.to_vec()) {
                         Ok(valid_str) => {
-                            // TODO: handle incoming server message
+                            let server_msg: ServerMessage = match serde_json::from_str(&valid_str) {
+                                Ok(msg) => msg,
+                                Err(_) => {
+                                    continue;
+                                }
+                            };
+
+                            // Handle message
+                            match server_msg {
+                                ServerMessage::CommandResult { success, message } => {
+                                    ()
+                                },
+                                ServerMessage::StateUpdate { username, current_room, message } => {
+                                    ()
+                                },
+                                ServerMessage::Chat(chat_message) => {
+                                    // Add message to the terminal ui
+                                    terminal_ui_sender.send(chat_message.format()).expect("Could not send chat message over terminal channel");
+                                },
+                            }
                         },
                         Err(err) => println!("{} Failed to parse text frame: {}", *ERROR_LOG, err),
                     }
@@ -164,17 +188,26 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
 
     local.spawn_local(async move {
         // Creating another unbounded channel for sending message
-        let (message_tx, message_rx) = mpsc::unbounded_channel();
-        let mut message_rx: UnboundedReceiverStream<ClientMessage> =
-            UnboundedReceiverStream::new(message_rx);
+        let (client_message_sender, client_message_receiver) = mpsc::unbounded_channel();
+        let mut client_message_receiver: UnboundedReceiverStream<ClientMessage> =
+            UnboundedReceiverStream::new(client_message_receiver);
+
+        // Create a channel for sending terminal messages to be added to the UI 
+        let (terminal_ui_sender, terminal_ui_receiver) = mpsc::unbounded_channel();
+        let mut terminal_ui_receiver: UnboundedReceiverStream<String> =
+            UnboundedReceiverStream::new(terminal_ui_receiver);
 
         // Initialize terminal UI
         enable_raw_mode().unwrap();
-        let mut terminal_ui = TerminalUI::new().unwrap();
+
+        // Create a terminal ui behind mutex
+        let terminal_ui = Arc::new(Mutex::new(TerminalUI::new().unwrap()));
+        if let Ok(mut ui) = terminal_ui.lock() {
+            ui.add_message(format!("[INFO] Connecting to {} ...", server_ip));
+        }
 
         // Formatting the websocket connection string
         let ws_url = format!("ws://{server_ip}:{server_port}/ws");
-        terminal_ui.add_message(format!("[INFO] Connecting to {} ...", server_ip));
 
         // Connecting to the given server
         let (_, ws) = awc::Client::new()
@@ -187,7 +220,9 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
             });
 
         // Successful connection
-        terminal_ui.add_message(format!("[INFO] Connected to {}!", server_ip));
+        if let Ok(mut ui) = terminal_ui.lock() {
+            ui.add_message(format!("[INFO] Connected to {}!", server_ip));
+        }
 
         // Creating a sink and stream from the websocket
         // - sink:
@@ -203,17 +238,39 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
         // - message thread: handle incoming messages
         // Spawn asynchronous tasks for handling input and messages
         // Spawn blocking thread for user input
-        let input_thread = thread::spawn(move || loop {
-            if let Ok(Some(input)) = terminal_ui.handle_input() {
-                handle_client_stdin(input, &mut terminal_ui, &mut client_state, &message_tx);
+        let input_thread = tokio::spawn(async move {
+            loop {
+                select! {
+                    // Handle messages from the terminal_ui_receiver channel
+                    Some(received_message) = terminal_ui_receiver.next() => {
+                        println!("MSG from channel: {}", received_message);
+                        if let Ok(mut ui) = terminal_ui.lock() {
+                            ui.add_message(received_message);
+                        }
+                    },
+                    // Handle direct user input from terminal_ui.handle_input()
+                    Ok(input) = async {
+                        // Lock the terminal UI and process handle_input()
+                        terminal_ui.lock()
+                            .map(|mut ui| ui.handle_input())
+                            .and_then(|res| Ok(res)) // Flatten the Result<Result<Option<String>, Error>, _>
+                    } => {
+                        if let Ok(Some(input)) = input {
+                            if let Ok(mut ui) = terminal_ui.lock() {
+                                handle_client_stdin(input, &mut ui, &mut client_state, &client_message_sender);
+                            }
+                        }
+                    }
+                }
             }
         });
 
-        // Handle incoming WebSocket messages asynchronously in LocalSet
-        handle_incoming_messages(&mut stream, &mut sink, &mut message_rx).await;
+        handle_incoming_messages(&mut stream, &mut sink, &terminal_ui_sender, &mut client_message_receiver).await;
 
         // Wait for the input thread to finish
-        input_thread.join().expect("Input thread panicked");
+        if let Err(err) = input_thread.await {
+            eprintln!("Input thread panicked: {:?}", err);
+        }
         disable_raw_mode().unwrap();
     });
 

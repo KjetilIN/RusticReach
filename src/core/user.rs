@@ -5,7 +5,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::server::room::Rooms;
+use crate::{
+    core::messages::ServerMessage,
+    server::room::Rooms,
+    utils::traits::{JsonSerializing, SendServerReply},
+};
 
 use super::messages::ChatMessage;
 
@@ -101,7 +105,7 @@ impl User {
 
     pub async fn broadcast_message(
         &self,
-        message: &ChatMessage,
+        message: &ServerMessage,
         rooms: &web::Data<Rooms>,
         users: &web::Data<Users>,
     ) {
@@ -118,10 +122,7 @@ impl User {
             for user_id in room {
                 if *user_id != self.user_id {
                     if let Some(client) = users.get_mut(user_id) {
-                        let _ = client
-                            .get_session()
-                            .text(format!("{}", message.format()))
-                            .await;
+                        message.send(&mut client.get_session()).await;
                     }
                 }
             }

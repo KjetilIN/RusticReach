@@ -106,10 +106,13 @@ async fn ws(
                                     *INFO_LOG, chat_message.sender, chat_message.room
                                 );
 
+                                let chat_server_message: ServerMessage =
+                                    ServerMessage::Chat(chat_message);
+
                                 // Broadcast this message to the room
                                 // TODO: make broadcast message handle closed channels
                                 let _ = current_user
-                                    .broadcast_message(&chat_message, &rooms, &users)
+                                    .broadcast_message(&chat_server_message, &rooms, &users)
                                     .await;
                             }
                         }
