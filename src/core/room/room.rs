@@ -111,7 +111,10 @@ impl ServerRooms {
     }
 
     /// Create a new chat room
-    pub fn create_room(&mut self, room_name: String) -> Result<(), RoomError> {
+    pub fn create_room(&mut self, room_name: String, user: &mut User) -> Result<(), RoomError> {
+        // TODO: get from config the privileges of room creation
+
+
         // Create room only if we are allowed to create more rooms
         if self.rooms.len() < self.max_rooms_count {
             // Create room

@@ -27,7 +27,7 @@ async fn ws(
 ) -> actix_web::Result<impl Responder> {
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
 
-    // Generate a unique user ID for this connection
+    // Generate a unique user ID for this connection privileges
     let user_id = Uuid::new_v4().to_string();
 
     // Create the new user

@@ -19,6 +19,14 @@ fn default_max_users() -> usize {
     return 4;
 }
 
+fn min_room_count() -> usize{
+    return 3; 
+}
+
+fn max_user_count_per_room() -> usize{
+    return 5;
+}
+
 /**
  * Admin config defined in the server config file!
  */
@@ -48,8 +56,25 @@ pub struct GeneralServerConfig {
     max_user_count: usize,
 }
 
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RoomConfig{
+    #[serde(default = "min_room_count")]
+    max_room_count: usize,
+
+    #[serde(default)]
+    password_required: bool,
+
+    #[serde(default)]
+    allow_room_creation: bool,
+
+    #[serde(default = "max_user_count_per_room")]
+    room_capacity: usize,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ServerConfig {
     admin: AdminConfig,
     general: GeneralServerConfig,
+    room: RoomConfig,
 }
