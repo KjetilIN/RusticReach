@@ -98,11 +98,9 @@ impl ChatMessage {
         );
     }
 
-    pub fn format_self(&self) -> String{
+    pub fn format_self(&self) -> String {
         let formatted_time = self.time_stamp.truecolor(211, 211, 211).to_string();
-        let formatted_user_name = (*SELF_USER) 
-            .yellow()
-            .to_string();
+        let formatted_user_name = (*SELF_USER).yellow().to_string();
 
         return format!(
             "{} {} {}",

@@ -8,6 +8,7 @@ use std::{
 use actix_codec::Framed;
 use actix_web::web::Bytes;
 use awc::{ws, BoxedSocket};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt as _, StreamExt,
@@ -20,6 +21,7 @@ use crate::{
     core::messages::{ChatMessage, ClientMessage, Command},
     utils::{
         constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
+        terminal_ui::{self, TerminalUI},
         traits::SendServerReply,
     },
 };
@@ -31,6 +33,7 @@ type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
 
 fn handle_client_stdin(
     input: String,
+    terminal_ui: &mut TerminalUI,
     client_state: &mut ClientState,
     message_tx: &mpsc::UnboundedSender<ClientMessage>,
 ) {
@@ -41,42 +44,55 @@ fn handle_client_stdin(
         if let Some(command) = Command::from_str(input.as_str()) {
             match command {
                 Command::SetName(new_name) => {
-                    println!("{} Client state change name to {}", *INFO_LOG, new_name);
+                    // Add message to terminal and change name
+                    terminal_ui.add_message(format!(
+                        "{} Client state change name to {}",
+                        *INFO_LOG, new_name
+                    ));
                     client_state.user_name = new_name.clone();
 
                     // Send set name message to server
                     let set_name_message = ClientMessage::Command(Command::SetName(new_name));
                     message_tx.send(set_name_message).unwrap_or_else(|err| {
-                        println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+                        terminal_ui.add_message(format!(
+                            "{} Unbounded channel error: {}",
+                            *ERROR_LOG, err
+                        ));
                     });
                 }
                 Command::JoinRoom(room_name) => {
-                    println!("{} Change room to {}", *INFO_LOG, room_name);
+                    terminal_ui.add_message(format!("{} Change room to {}", *INFO_LOG, room_name));
                     client_state.room = Some(room_name.clone());
 
                     // Send join room to server
                     let join_message = ClientMessage::Command(Command::JoinRoom(room_name));
                     message_tx.send(join_message).unwrap_or_else(|err| {
-                        println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+                        terminal_ui.add_message(format!(
+                            "{} Unbounded channel error: {}",
+                            *ERROR_LOG, err
+                        ));
                     });
                 }
                 Command::LeaveRoom => {
-                    println!("{} Client state, user left room", *INFO_LOG);
+                    terminal_ui.add_message(format!("{} Client state, user left room", *INFO_LOG));
                     client_state.room = None;
 
                     // Send leave room message
                     let leave_message = ClientMessage::Command(Command::LeaveRoom);
                     message_tx.send(leave_message).unwrap_or_else(|err| {
-                        println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+                        terminal_ui.add_message(format!(
+                            "{} Unbounded channel error: {}",
+                            *ERROR_LOG, err
+                        ));
                     });
                 }
             }
         } else {
-            println!("{} Unknown command", *ERROR_LOG)
+            terminal_ui.add_message(format!("{} Unknown command", *ERROR_LOG));
         }
     } else {
         if client_state.room.is_none() {
-            println!("{} Please join a room!", *ERROR_LOG);
+            terminal_ui.add_message(format!("{} Please join a room!", *ERROR_LOG));
         } else {
             // The input is text and should be sent to the server
             // TODO: refactor this!!
@@ -91,7 +107,7 @@ fn handle_client_stdin(
                         });
 
                     // Print the chat message from the users perspective
-                    println!("{}", message.format_self());
+                    terminal_ui.add_message(message.format_self());
                 }
                 Err(_) => {
                     println!(
@@ -101,25 +117,6 @@ fn handle_client_stdin(
                 }
             }
         }
-    }
-}
-
-fn handle_user_input(
-    client_state: &mut ClientState,
-    message_tx: &mpsc::UnboundedSender<ClientMessage>,
-) {
-    loop {
-        let mut cmd = String::with_capacity(32);
-
-        print!("{} ", *MESSAGE_LINE_SYMBOL);
-        io::stdout().flush().expect("Failed to flush stdout");
-
-        if io::stdin().read_line(&mut cmd).is_err() {
-            println!("{} Could not read message input", *ERROR_LOG);
-            return;
-        }
-
-        handle_client_stdin(cmd.clone(), client_state, message_tx);
     }
 }
 
@@ -133,7 +130,9 @@ async fn handle_incoming_messages(
             Some(msg) = stream.next() => match msg {
                 Ok(ws::Frame::Text(frame)) => {
                     match String::from_utf8(frame.to_vec()) {
-                        Ok(valid_str) => println!("{}", valid_str),
+                        Ok(valid_str) => {
+                            // TODO: handle incoming server message
+                        },
                         Err(err) => println!("{} Failed to parse text frame: {}", *ERROR_LOG, err),
                     }
                 },
@@ -169,9 +168,13 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
         let mut message_rx: UnboundedReceiverStream<ClientMessage> =
             UnboundedReceiverStream::new(message_rx);
 
+        // Initialize terminal UI
+        enable_raw_mode().unwrap();
+        let mut terminal_ui = TerminalUI::new().unwrap();
+
         // Formatting the websocket connection string
         let ws_url = format!("ws://{server_ip}:{server_port}/ws");
-        println!("{} Connecting to {} ...", *INFO_LOG, server_ip);
+        terminal_ui.add_message(format!("[INFO] Connecting to {} ...", server_ip));
 
         // Connecting to the given server
         let (_, ws) = awc::Client::new()
@@ -184,7 +187,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
             });
 
         // Successful connection
-        println!("{} Connected to {}!", *INFO_LOG, server_ip);
+        terminal_ui.add_message(format!("[INFO] Connected to {}!", server_ip));
 
         // Creating a sink and stream from the websocket
         // - sink:
@@ -200,8 +203,10 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
         // - message thread: handle incoming messages
         // Spawn asynchronous tasks for handling input and messages
         // Spawn blocking thread for user input
-        let input_thread = thread::spawn(move || {
-            handle_user_input(&mut client_state, &message_tx);
+        let input_thread = thread::spawn(move || loop {
+            if let Ok(Some(input)) = terminal_ui.handle_input() {
+                handle_client_stdin(input, &mut terminal_ui, &mut client_state, &message_tx);
+            }
         });
 
         // Handle incoming WebSocket messages asynchronously in LocalSet
@@ -209,6 +214,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
 
         // Wait for the input thread to finish
         input_thread.join().expect("Input thread panicked");
+        disable_raw_mode().unwrap();
     });
 
     local.await;
