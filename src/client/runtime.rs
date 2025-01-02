@@ -83,21 +83,41 @@ fn handle_client_stdin(
                         ));
                     });
                 }
+                Command::RoomInfo => {
+                    if client_state.room.is_some() {
+                        // Ask for room info by sending the command
+                        let room_info_request = ClientMessage::Command(Command::RoomInfo);
+                        message_tx.send(room_info_request).unwrap_or_else(|err| {
+                            terminal_ui.add_message(format!(
+                                "{} Unbounded channel error: {}",
+                                *ERROR_LOG, err
+                            ));
+                        });
+                    } else {
+                        // Tell the user to join a room first
+                        let room_command_colored =
+                            format!("/room").yellow().underline().to_string();
+                        terminal_ui.add_message(format!(
+                            "{} You need to be in a room before using the {} command",
+                            *ERROR_LOG, room_command_colored
+                        ));
+                    }
+                }
             }
         } else {
             // Exit command is the client only command
-            if input.starts_with("/exit"){
-                terminal_ui.add_message(format!(
-                    "{} Exiting the program...",
-                    *INFO_LOG
-                ));
+            if input.starts_with("/exit") {
+                terminal_ui.add_message(format!("{} Exiting the program...", *INFO_LOG));
 
                 disable_raw_mode().unwrap();
                 exit(0);
-            }else{
+            } else {
                 // Letting the user know what commands they used that was not valid
-                let error_command = input.split_ascii_whitespace().collect::<Vec<&str>>()[0].underline().red();
-                terminal_ui.add_message(format!("{} Unknown command: {}", *ERROR_LOG, error_command));
+                let error_command = input.split_ascii_whitespace().collect::<Vec<&str>>()[0]
+                    .underline()
+                    .red();
+                terminal_ui
+                    .add_message(format!("{} Unknown command: {}", *ERROR_LOG, error_command));
             }
         }
     } else {

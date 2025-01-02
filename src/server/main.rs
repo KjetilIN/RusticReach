@@ -91,6 +91,11 @@ async fn ws(
                                             ServerMessage::state_update(&current_user, "Left room");
                                         msg.send(&mut current_user.get_session()).await;
                                     }
+                                    rustic_reach::core::messages::Command::RoomInfo => {
+                                        if let Some(room_name) = current_user.get_room_name() {
+                                            // Find information about the current room
+                                        }
+                                    }
                                 }
                             }
                             ClientMessage::Chat(chat_message) => {

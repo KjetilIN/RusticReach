@@ -26,6 +26,15 @@ pub enum Command {
     SetName(String),
     JoinRoom(String),
     LeaveRoom,
+    RoomInfo,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct RoomInformation {
+    users_count: usize,
+    room_size: usize,
+    room_owner: String,
+    current_users: Vec<String>,
 }
 
 impl Command {
@@ -54,6 +63,11 @@ impl Command {
                 if parts.len() == 2 {
                     let new_name = parts[1];
                     return Some(Command::SetName(new_name.to_owned()));
+                }
+            }
+            "/room" => {
+                if parts.len() == 1 {
+                    return Some(Command::RoomInfo);
                 }
             }
             _ => return None,
