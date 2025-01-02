@@ -6,7 +6,8 @@ use std::{
 use actix_codec::Framed;
 use actix_web::web::Bytes;
 use awc::{ws, BoxedSocket};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use colored::Colorize;
+use crossterm::terminal::disable_raw_mode;
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt as _, StreamExt,
@@ -22,7 +23,7 @@ use crate::{
     client::state::ClientState,
     core::messages::{ChatMessage, ClientMessage, Command, ServerMessage},
     utils::{
-        constants::{server_message, ERROR_LOG, MESSAGE_COMMAND_SYMBOL},
+        constants::{server_message, ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL},
         terminal_ui::TerminalUI,
     },
 };
@@ -84,7 +85,20 @@ fn handle_client_stdin(
                 }
             }
         } else {
-            terminal_ui.add_message(format!("{} Unknown command", *ERROR_LOG));
+            // Exit command is the client only command
+            if input.starts_with("/exit"){
+                terminal_ui.add_message(format!(
+                    "{} Exiting the program...",
+                    *INFO_LOG
+                ));
+
+                disable_raw_mode().unwrap();
+                exit(0);
+            }else{
+                // Letting the user know what commands they used that was not valid
+                let error_command = input.split_ascii_whitespace().collect::<Vec<&str>>()[0].underline().red();
+                terminal_ui.add_message(format!("{} Unknown command: {}", *ERROR_LOG, error_command));
+            }
         }
     } else {
         if client_state.room.is_none() {
@@ -178,7 +192,12 @@ async fn handle_incoming_messages(
     }
 }
 
-pub async fn connect(server_ip: String, server_port: String, client_config: Arc<ClientConfig>) {
+pub async fn connect(
+    server_ip: String,
+    server_port: String,
+    client_config: Arc<ClientConfig>,
+    terminal_ui: Arc<Mutex<TerminalUI>>,
+) {
     let local = LocalSet::new();
 
     local.spawn_local(async move {
@@ -192,13 +211,9 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
         let mut terminal_ui_receiver: UnboundedReceiverStream<String> =
             UnboundedReceiverStream::new(terminal_ui_receiver);
 
-        // Initialize terminal UI
-        enable_raw_mode().unwrap();
-
         // Create a terminal ui behind mutex
-        let terminal_ui = Arc::new(Mutex::new(TerminalUI::new().unwrap()));
         if let Ok(mut ui) = terminal_ui.lock() {
-            ui.add_message(format!("[INFO] Connecting to {} ...", server_ip));
+            ui.add_message(format!("{} Connecting to {} ...", *INFO_LOG, server_ip));
         }
 
         // Formatting the websocket connection string
@@ -216,7 +231,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
 
         // Successful connection
         if let Ok(mut ui) = terminal_ui.lock() {
-            ui.add_message(format!("[INFO] Connected to {}!", server_ip));
+            ui.add_message(format!("{} Connected to {}!", *INFO_LOG, server_ip));
         }
 
         // Creating a sink and stream from the websocket
@@ -266,7 +281,6 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
         if let Err(err) = input_thread.await {
             eprintln!("Input thread panicked: {:?}", err);
         }
-        disable_raw_mode().unwrap();
     });
 
     local.await;

@@ -1,6 +1,9 @@
 use std::env;
 
-use crate::{client::config::{parse_client_config, ClientConfig}, utils::constants::ERROR_LOG};
+use crate::{
+    client::config::{parse_client_config, ClientConfig},
+    utils::constants::ERROR_LOG,
+};
 
 /**
  * Validates the input arguments of the
