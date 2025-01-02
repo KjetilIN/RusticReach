@@ -250,7 +250,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
                         // Lock the terminal UI and process handle_input()
                         terminal_ui.lock()
                             .map(|mut ui| ui.handle_input())
-                            .and_then(|res| Ok(res)) 
+                            .and_then(|res| Ok(res))
                     } => {
                         if let Ok(Some(input)) = input {
                             if let Ok(mut ui) = terminal_ui.lock() {

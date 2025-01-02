@@ -5,12 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
-    core::messages::ServerMessage,
-    server::room::Rooms,
-    utils::traits::SendServerReply,
-};
-
+use crate::{core::messages::ServerMessage, server::room::Rooms, utils::traits::SendServerReply};
 
 // Set of users for the server
 pub type Users = Arc<Mutex<HashMap<String, User>>>;

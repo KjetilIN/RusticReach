@@ -9,13 +9,7 @@ use crate::core::user::User;
 
 pub type WebRoom = web::Data<Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>>;
 
-pub async fn handle_join(
-    _session: &mut Session,
-    room_name: String,
-    user: &mut User,
-    user_id: &String,
-    rooms: &WebRoom,
-) {
+pub async fn handle_join(room_name: String, user: &mut User, user_id: &String, rooms: &WebRoom) {
     // Leave the current room if necessary
     if user.has_joined_room() {
         user.leave_room(&user_id, &rooms).await;

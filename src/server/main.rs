@@ -75,14 +75,8 @@ async fn ws(
                                         msg.send(&mut session).await;
                                     }
                                     rustic_reach::core::messages::Command::JoinRoom(room) => {
-                                        handle_join(
-                                            &mut session,
-                                            room,
-                                            &mut current_user,
-                                            &user_id,
-                                            &rooms,
-                                        )
-                                        .await;
+                                        handle_join(room, &mut current_user, &user_id, &rooms)
+                                            .await;
 
                                         // Send success message
                                         let msg = ServerMessage::successful_command("Joined room!");
