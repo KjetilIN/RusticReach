@@ -1,20 +1,26 @@
+use serde::{Deserialize, Serialize};
+
 use super::user::User;
 use std::collections::HashMap;
 
+
+/// Represents any type of error that a user might have had interacting with a Room in some way
+#[derive(Debug)]
+pub enum RoomError {
+    MaxRoomCount(usize),
+    MaxCapacityReached,
+    NameOccupied,
+    InvalidAction(String),
+}
+
+/// Represents a state of a given room at the given time
 #[derive(Debug)]
 pub struct Room {
     id: String,
     name: String,
     capacity: usize,
     joined_users: HashMap<String, String>,
-}
-
-#[derive(Debug)]
-pub enum RoomError {
-    MaxRoomCountReached,
-    MaxCapacityReached,
-    NameOccupied,
-    InvalidAction(String),
+    password_hash: Option<String>
 }
 
 impl Room {
@@ -52,6 +58,22 @@ impl Room {
             return Err(RoomError::MaxCapacityReached);
         }
     }
+
+    /// Returns a struct that represents the information about the current room
+    pub fn info(&self) -> RoomInformation{
+        unimplemented!()
+    }
+}
+
+
+
+/// Room information that any user without any privileges can see about the Room the user currently is in
+#[derive(Serialize, Deserialize, Clone)]
+pub struct RoomInformation {
+    users_count: usize,
+    room_size: usize,
+    room_owner_username: String,
+    current_users: Vec<String>,
 }
 
 /// Collection of Rooms that the server currently has
@@ -62,6 +84,7 @@ pub struct ServerRooms {
 }
 
 impl ServerRooms {
+    /// Create a new list of server rooms with a given max count for amount of rooms allowed on the server
     pub fn with_max_room_count(max: usize) -> Self {
         Self {
             max_rooms_count: max,
@@ -69,7 +92,8 @@ impl ServerRooms {
         }
     }
 
-    fn room_name_not_taken(&self, room_name: String) -> bool {
+    /// Checks if the given room is already exists on the server
+    fn room_name_taken(&self, room_name: String) -> bool {
         for (_, room) in &self.rooms {
             if room.name() == room_name {
                 return true;
@@ -78,16 +102,34 @@ impl ServerRooms {
         false
     }
 
-    pub fn create_room(&self, room_name: String) -> Result<(), RoomError> {
+    /// Get the given room id 
+    fn get_room_id(&self, room_name: String) -> Option<String>{
+        for (_, room) in &self.rooms {
+            if room.name() == room_name {
+                return Some(room.id.clone());
+            }
+        }
+        None
+    }
+
+    /// Create a new chat room
+    pub fn create_room(&mut self, room_name: String) -> Result<(), RoomError> {
         // Create room only if we are allowed to create more rooms
         if self.rooms.len() < self.max_rooms_count {
             // Create room
-            if !self.room_name_not_taken(room_name) {
+            if !self.room_name_taken(room_name) {
                 return Ok(());
             }
             // The given room name is taken for this server
             return Err(RoomError::NameOccupied);
         }
-        return Err(RoomError::MaxRoomCountReached);
+        return Err(RoomError::MaxRoomCount(self.rooms.len()));
+    }
+
+    /// Delete the given room name from the server
+    pub fn delete_room(&mut self, room_name: String){
+        if let Some(room_id) = self.get_room_id(room_name){
+            self.rooms.remove(&room_id);
+        }
     }
 }

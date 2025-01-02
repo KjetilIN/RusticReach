@@ -29,14 +29,6 @@ pub enum Command {
     RoomInfo,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct RoomInformation {
-    users_count: usize,
-    room_size: usize,
-    room_owner: String,
-    current_users: Vec<String>,
-}
-
 impl Command {
     pub fn from_str(input: &str) -> Option<Self> {
         if input.is_empty() || !input.starts_with(MESSAGE_COMMAND_SYMBOL) {
