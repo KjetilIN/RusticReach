@@ -3,14 +3,14 @@ use actix_web::{web, App, HttpRequest, HttpServer, Responder};
 use actix_ws::Message;
 use futures_util::StreamExt as _;
 use rustic_reach::{
-    core::user::{User, Users},
-    server::{
-        handlers::ws_handlers::{handle_join, handle_leave, handle_name},
-        room::Rooms,
+    core::{
+        messages::{ClientMessage, ServerMessage},
+        user::{User, Users},
     },
+    server::{handlers::ws_handlers::handle_join, room::Rooms},
     utils::{
-        cmd::{command::CommandType, message_commands::MESSAGE_COMMANDS},
-        constants::ERROR_LOG,
+        constants::{INFO_LOG, WARNING_LOG},
+        traits::SendServerReply,
     },
 };
 use std::{
@@ -45,56 +45,69 @@ async fn ws(
         let users = users.clone();
 
         async move {
-            let mut current_room: Option<String> = None;
-
             while let Some(Ok(msg)) = msg_stream.next().await {
                 match msg {
                     Message::Text(text) => {
-                        let text = text.trim();
-                        println!("Message: {}", text);
+                        // TODO: deserialize message from server
+                        println!("Message: {text}");
+                        let chat_msg: ClientMessage = match serde_json::from_str(&text) {
+                            Ok(chat) => chat,
+                            Err(_) => {
+                                println!("{} Ignored: {}", *WARNING_LOG, text);
+                                continue;
+                            }
+                        };
 
-                        // Check if given message is an command
-                        if let Some(command) = MESSAGE_COMMANDS.retrieve_command(text.to_owned()) {
-                            if let Some(command_type) = command.get_type() {
-                                match command_type {
-                                    CommandType::Join => {
-                                        handle_join(
-                                            &mut session,
-                                            text.to_owned(),
-                                            &mut current_room,
-                                            &mut current_user,
-                                            &user_id,
-                                            &rooms,
-                                        )
-                                        .await
+                        // Handle the message differently based on command or not
+                        match chat_msg {
+                            ClientMessage::Command(command) => {
+                                // Info log about message
+                                match command {
+                                    rustic_reach::core::messages::Command::SetName(new_name) => {
+                                        // Changing the name
+                                        current_user.set_user_name(new_name);
+
+                                        // Send update message
+                                        let msg = ServerMessage::state_update(
+                                            &current_user,
+                                            "New user name set",
+                                        );
+                                        msg.send(&mut session).await;
                                     }
-                                    CommandType::Leave => {
-                                        handle_leave(
-                                            &mut session,
-                                            &mut current_room,
-                                            &mut current_user,
-                                            &user_id,
-                                            &rooms,
-                                        )
-                                        .await
+                                    rustic_reach::core::messages::Command::JoinRoom(room) => {
+                                        handle_join(room, &mut current_user, &user_id, &rooms)
+                                            .await;
+
+                                        // Send success message
+                                        let msg = ServerMessage::successful_command("Joined room!");
+                                        msg.send(&mut session).await;
                                     }
-                                    CommandType::Name => {
-                                        handle_name(
-                                            &mut session,
-                                            text.to_owned(),
-                                            &mut current_user,
-                                        )
-                                        .await
+                                    rustic_reach::core::messages::Command::LeaveRoom => {
+                                        // Leave room
+                                        current_user.leave_room(&user_id, &rooms).await;
+
+                                        // Send update message
+                                        let msg =
+                                            ServerMessage::state_update(&current_user, "Left room");
+                                        msg.send(&mut current_user.get_session()).await;
                                     }
                                 }
-                            } else {
-                                // Command detected, should not happen
-                                println!("{} Message command not included in list of valid commands: {text}", *ERROR_LOG);
                             }
-                        } else {
-                            // Message was not a command: broadcast it!
-                            if current_user.has_joined_room() {
-                                current_user.broadcast_message(&text, &rooms, &users).await;
+                            ClientMessage::Chat(chat_message) => {
+                                // Log that a chat message has been received
+                                println!(
+                                    "{} {} wrote a message in {}",
+                                    *INFO_LOG, chat_message.sender, chat_message.room
+                                );
+
+                                let chat_server_message: ServerMessage =
+                                    ServerMessage::Chat(chat_message);
+
+                                // Broadcast this message to the room
+                                // TODO: make broadcast message handle closed channels
+                                let _ = current_user
+                                    .broadcast_message(&chat_server_message, &rooms, &users)
+                                    .await;
                             }
                         }
                     }
@@ -112,8 +125,8 @@ async fn ws(
             }
 
             // Clean up when the user disconnects
-            if let Some(room) = &current_room {
-                current_user.leave_room(&user_id, room, &rooms).await;
+            if let Some(_) = &current_user.take_room() {
+                current_user.leave_room(&user_id, &rooms).await;
             }
 
             users.lock().unwrap().remove(&user_id);

@@ -1,4 +1,4 @@
-pub mod cmd;
 pub mod constants;
-pub mod formatted_messages;
+pub mod terminal_ui;
 pub mod time;
+pub mod traits;
