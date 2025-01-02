@@ -1,48 +1,21 @@
 use rustic_reach::{
     client::{
-        config::{parse_client_config, ClientConfig},
+        config::ClientConfig,
         runtime::connect,
     },
-    utils::constants::{
-        COMMAND_LINE_SYMBOL, DEFAULT_SERVER_PORT, ERROR_LOG, INFO_LOG, WARNING_LOG,
-    },
+    utils::{args::validate_args, constants::{
+        COMMAND_LINE_SYMBOL, DEFAULT_SERVER_PORT, INFO_LOG, WARNING_LOG,
+    }},
 };
 use std::{
-    env,
     io::{self, Write},
     process::exit,
 };
 
-/**
- * Validates the input arguments of the
- *
- * Logs error and info
- *
- * Returns either the parsed client config or an error.
- */
-pub fn validate_args() -> Result<ClientConfig, ()> {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() != 3 || &args[1] != "-c" || args[2].is_empty() {
-        println!("{} Usage: <program> -c <client.yml>", *ERROR_LOG);
-        return Err(());
-    }
-
-    let file_path = &args[2];
-    if let Some(config) = parse_client_config(&file_path) {
-        return Ok(config);
-    } else {
-        println!(
-            "{} Provided client config {} could not be parsed",
-            *ERROR_LOG, file_path
-        );
-        return Err(());
-    }
-}
-
 #[tokio::main]
 async fn main() {
-    let client_config: ClientConfig = validate_args().unwrap_or_else(|_| {
+    let client_config: ClientConfig = validate_args().unwrap_or_else(|message| {
+        println!("{}", message);
         exit(1);
     });
 
