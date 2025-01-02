@@ -46,7 +46,7 @@ impl Command {
                 }
             }
             "/leave" => {
-                if parts.len() == 0 {
+                if parts.len() == 1 {
                     return Some(Command::LeaveRoom);
                 }
             }

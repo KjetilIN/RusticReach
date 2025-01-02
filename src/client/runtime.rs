@@ -22,7 +22,7 @@ use crate::{
     client::state::ClientState,
     core::messages::{ChatMessage, ClientMessage, Command, ServerMessage},
     utils::{
-        constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL},
+        constants::{server_message, ERROR_LOG, MESSAGE_COMMAND_SYMBOL},
         terminal_ui::TerminalUI,
     },
 };
@@ -46,10 +46,6 @@ fn handle_client_stdin(
             match command {
                 Command::SetName(new_name) => {
                     // Add message to terminal and change name
-                    terminal_ui.add_message(format!(
-                        "{} Client state change name to {}",
-                        *INFO_LOG, new_name
-                    ));
                     client_state.user_name = new_name.clone();
 
                     // Send set name message to server
@@ -62,7 +58,6 @@ fn handle_client_stdin(
                     });
                 }
                 Command::JoinRoom(room_name) => {
-                    terminal_ui.add_message(format!("{} Change room to {}", *INFO_LOG, room_name));
                     client_state.room = Some(room_name.clone());
 
                     // Send join room to server
@@ -75,7 +70,7 @@ fn handle_client_stdin(
                     });
                 }
                 Command::LeaveRoom => {
-                    terminal_ui.add_message(format!("{} Client state, user left room", *INFO_LOG));
+                    // Leaving room
                     client_state.room = None;
 
                     // Send leave room message
@@ -133,6 +128,7 @@ async fn handle_incoming_messages(
                 Ok(ws::Frame::Text(frame)) => {
                     match String::from_utf8(frame.to_vec()) {
                         Ok(valid_str) => {
+                            // Parse server message, or ignore the message
                             let server_msg: ServerMessage = match serde_json::from_str(&valid_str) {
                                 Ok(msg) => msg,
                                 Err(_) => {
@@ -142,11 +138,13 @@ async fn handle_incoming_messages(
 
                             // Handle message
                             match server_msg {
-                                ServerMessage::CommandResult { success, message } => {
-                                    ()
+                                ServerMessage::CommandResult { success: _, message } => {
+                                    let server_message = server_message(&message);
+                                    terminal_ui_sender.send(server_message).expect("Could not send message over terminal channel")
                                 },
-                                ServerMessage::StateUpdate { username, current_room, message } => {
-                                    ()
+                                ServerMessage::StateUpdate { username: _, current_room: _, message } => {
+                                    let server_message = server_message(&message);
+                                    terminal_ui_sender.send(server_message).expect("Could not send message over terminal channel")
                                 },
                                 ServerMessage::Chat(chat_message) => {
                                     // Add message to the terminal ui
