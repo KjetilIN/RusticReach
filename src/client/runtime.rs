@@ -149,13 +149,11 @@ async fn handle_incoming_messages(
                 _ => {}
             },
             Some(cmd) = cmd_rx.next() => {
-                println!("message stream");
                 if !cmd.trim().is_empty() {
                     sink.send(ws::Message::Text(cmd.into())).await.unwrap();
                 }
             },
             Some(message) = message_rx.next() => {
-                println!("message stream");
                 // Received a chat message from the input thread
                 // Message need to be sent to the server
                 match serde_json::to_string(&message) {
