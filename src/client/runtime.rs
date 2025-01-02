@@ -21,6 +21,7 @@ use crate::{
     utils::{
         constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
         formatted_messages::format_message_string,
+        traits::SendServerReply,
     },
 };
 
@@ -42,15 +43,33 @@ fn handle_message_commands(
             match command {
                 Command::SetName(new_name) => {
                     println!("{} Client state change name to {}", *INFO_LOG, new_name);
-                    client_state.user_name = new_name;
+                    client_state.user_name = new_name.clone();
+
+                    // Send set name message to server
+                    let set_name_message = ClientMessage::Command(Command::SetName(new_name));
+                    message_tx.send(set_name_message).unwrap_or_else(|err| {
+                        println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+                    });
                 }
                 Command::JoinRoom(room_name) => {
                     println!("{} Change room to {}", *INFO_LOG, room_name);
-                    client_state.room = Some(room_name);
+                    client_state.room = Some(room_name.clone());
+
+                    // Send join room to server
+                    let join_message = ClientMessage::Command(Command::JoinRoom(room_name));
+                    message_tx.send(join_message).unwrap_or_else(|err| {
+                        println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+                    });
                 }
                 Command::LeaveRoom => {
                     println!("{} Client state, user left room", *INFO_LOG);
                     client_state.room = None;
+
+                    // Send leave room message
+                    let leave_message = ClientMessage::Command(Command::LeaveRoom);
+                    message_tx.send(leave_message).unwrap_or_else(|err| {
+                        println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
+                    });
                 }
             }
         } else {

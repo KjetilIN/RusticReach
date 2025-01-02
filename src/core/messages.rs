@@ -19,6 +19,9 @@ pub enum ClientMessage {
     Chat(ChatMessage),
 }
 
+impl JsonSerializing for ClientMessage {}
+impl SendServerReply for ClientMessage {}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Command {
     SetName(String),
