@@ -10,7 +10,7 @@ use crate::core::user::User;
 pub type WebRoom = web::Data<Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>>;
 
 pub async fn handle_join(
-    session: &mut Session,
+    _session: &mut Session,
     room_name: String,
     user: &mut User,
     user_id: &String,

@@ -8,10 +8,9 @@ use std::{
 use crate::{
     core::messages::ServerMessage,
     server::room::Rooms,
-    utils::traits::{JsonSerializing, SendServerReply},
+    utils::traits::SendServerReply,
 };
 
-use super::messages::ChatMessage;
 
 // Set of users for the server
 pub type Users = Arc<Mutex<HashMap<String, User>>>;

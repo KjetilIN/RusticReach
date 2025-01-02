@@ -1,8 +1,6 @@
 use std::{
-    io::{self, Write},
     process::exit,
     sync::{Arc, Mutex},
-    thread,
 };
 
 use actix_codec::Framed;
@@ -24,9 +22,8 @@ use crate::{
     client::state::ClientState,
     core::messages::{ChatMessage, ClientMessage, Command, ServerMessage},
     utils::{
-        constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, MESSAGE_LINE_SYMBOL},
-        terminal_ui::{self, TerminalUI},
-        traits::SendServerReply,
+        constants::{ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL},
+        terminal_ui::TerminalUI,
     },
 };
 
@@ -253,7 +250,7 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
                         // Lock the terminal UI and process handle_input()
                         terminal_ui.lock()
                             .map(|mut ui| ui.handle_input())
-                            .and_then(|res| Ok(res)) // Flatten the Result<Result<Option<String>, Error>, _>
+                            .and_then(|res| Ok(res)) 
                     } => {
                         if let Ok(Some(input)) = input {
                             if let Ok(mut ui) = terminal_ui.lock() {

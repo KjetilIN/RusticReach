@@ -2,8 +2,7 @@ use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
-    QueueableCommand,
+    terminal::{Clear, ClearType},
 };
 use std::io::{self, stdout, Write};
 
