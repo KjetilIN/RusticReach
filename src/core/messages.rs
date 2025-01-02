@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     client::state::ClientState,
     utils::{
-        constants::MESSAGE_COMMAND_SYMBOL,
+        constants::{MESSAGE_COMMAND_SYMBOL, SELF_USER},
         time::get_time_string,
         traits::{JsonSerializing, SendServerReply},
     },
@@ -90,6 +90,18 @@ impl ChatMessage {
         let formatted_time = self.time_stamp.truecolor(211, 211, 211).to_string();
         let formatted_user_name = format!("<{}>", self.sender)
             .truecolor(user_name_color.0, user_name_color.1, user_name_color.2)
+            .to_string();
+
+        return format!(
+            "{} {} {}",
+            formatted_time, formatted_user_name, self.content
+        );
+    }
+
+    pub fn format_self(&self) -> String{
+        let formatted_time = self.time_stamp.truecolor(211, 211, 211).to_string();
+        let formatted_user_name = (*SELF_USER) 
+            .yellow()
             .to_string();
 
         return format!(

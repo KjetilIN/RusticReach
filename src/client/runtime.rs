@@ -29,7 +29,7 @@ use super::config::ClientConfig;
 type WsFramedSink = SplitSink<Framed<BoxedSocket, ws::Codec>, ws::Message>;
 type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
 
-fn handle_message_commands(
+fn handle_client_stdin(
     input: String,
     client_state: &mut ClientState,
     message_tx: &mpsc::UnboundedSender<ClientMessage>,
@@ -80,18 +80,18 @@ fn handle_message_commands(
         } else {
             // The input is text and should be sent to the server
             // TODO: refactor this!!
-            let user_name = &client_state.user_name;
             let outgoing_msg_result = ChatMessage::create(client_state, input);
             match outgoing_msg_result {
                 Ok(message) => {
-                    println!("Sending msg as chat struct!");
-
                     // Send message
                     message_tx
-                        .send(ClientMessage::Chat(message))
+                        .send(ClientMessage::Chat(message.clone()))
                         .unwrap_or_else(|err| {
                             println!("{} Unbounded channel error: {}", *ERROR_LOG, err);
                         });
+
+                    // Print the chat message from the users perspective
+                    println!("{}", message.format_self());
                 }
                 Err(_) => {
                     println!(
@@ -105,7 +105,6 @@ fn handle_message_commands(
 }
 
 fn handle_user_input(
-    cmd_tx: mpsc::UnboundedSender<String>,
     client_state: &mut ClientState,
     message_tx: &mpsc::UnboundedSender<ClientMessage>,
 ) {
@@ -120,18 +119,13 @@ fn handle_user_input(
             return;
         }
 
-        handle_message_commands(cmd.clone(), client_state, message_tx);
-        if let Err(err) = cmd_tx.send(cmd) {
-            println!("{} Failed to send command: {}", *ERROR_LOG, err);
-            exit(1);
-        }
+        handle_client_stdin(cmd.clone(), client_state, message_tx);
     }
 }
 
 async fn handle_incoming_messages(
     stream: &mut WsFramedStream,
     sink: &mut WsFramedSink,
-    cmd_rx: &mut UnboundedReceiverStream<String>,
     message_rx: &mut UnboundedReceiverStream<ClientMessage>,
 ) {
     loop {
@@ -147,11 +141,6 @@ async fn handle_incoming_messages(
                     sink.send(ws::Message::Pong(Bytes::new())).await.unwrap();
                 },
                 _ => {}
-            },
-            Some(cmd) = cmd_rx.next() => {
-                if !cmd.trim().is_empty() {
-                    sink.send(ws::Message::Text(cmd.into())).await.unwrap();
-                }
             },
             Some(message) = message_rx.next() => {
                 // Received a chat message from the input thread
@@ -175,11 +164,6 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
     let local = LocalSet::new();
 
     local.spawn_local(async move {
-        // Creating an unbounded channel that allows us to;
-        // - Send terminal commands to and from the message thread
-        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
-        let mut cmd_rx: UnboundedReceiverStream<String> = UnboundedReceiverStream::new(cmd_rx);
-
         // Creating another unbounded channel for sending message
         let (message_tx, message_rx) = mpsc::unbounded_channel();
         let mut message_rx: UnboundedReceiverStream<ClientMessage> =
@@ -217,11 +201,11 @@ pub async fn connect(server_ip: String, server_port: String, client_config: Arc<
         // Spawn asynchronous tasks for handling input and messages
         // Spawn blocking thread for user input
         let input_thread = thread::spawn(move || {
-            handle_user_input(cmd_tx, &mut client_state, &message_tx);
+            handle_user_input(&mut client_state, &message_tx);
         });
 
         // Handle incoming WebSocket messages asynchronously in LocalSet
-        handle_incoming_messages(&mut stream, &mut sink, &mut cmd_rx, &mut message_rx).await;
+        handle_incoming_messages(&mut stream, &mut sink, &mut message_rx).await;
 
         // Wait for the input thread to finish
         input_thread.join().expect("Input thread panicked");
