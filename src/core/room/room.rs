@@ -1,9 +1,16 @@
+use actix_web::web;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use std::collections::{hash_map::Values, HashMap};
+use std::{
+    collections::{hash_map::Values, HashMap},
+    sync::{Arc, Mutex},
+};
 
-use crate::{core::user::user::User, utils::{constants::SERVER_INFO, hash::hash_str}};
+use crate::{
+    core::user::user::User,
+    utils::{constants::SERVER_INFO, hash::hash_str},
+};
 
 /// Represents any type of error that a user might have had interacting with a Room in some way
 #[derive(Debug)]
@@ -22,9 +29,12 @@ pub enum RoomError {
 
 impl RoomError {
     /// Returns a formatted message from the room error
-    pub fn message(&self) -> String{
-        match self{
-            RoomError::MaxRoomCount(count) => format!("{} {}/{} rooms created. No more available rooms available...", *SERVER_INFO, count, count),
+    pub fn message(&self) -> String {
+        match self {
+            RoomError::MaxRoomCount(count) => format!(
+                "{} {}/{} rooms created. No more available rooms available...",
+                *SERVER_INFO, count, count
+            ),
             RoomError::MaxCapacityReached => format!("{} Room is full", *SERVER_INFO),
             RoomError::NameOccupied => format!("{} Room already exists", *SERVER_INFO),
             RoomError::InvalidAction(msg) => format!("{} {}", *SERVER_INFO, msg),
@@ -43,6 +53,9 @@ pub struct Room {
     users: HashMap<String, User>,
     password_hash: Option<String>,
 }
+
+/// Represent a application level data of the struct ServerRooms, protected by a mutex
+pub type WebRoom = web::Data<Arc<Mutex<ServerRooms>>>;
 
 impl Room {
     /// Create a new room with random id
@@ -133,7 +146,7 @@ impl Room {
     }
 
     /// Add a user to the list of joined users
-    /// 
+    ///
     /// The method clones the user, changes the room of the user, and adds it to the room
     pub fn add_user(&mut self, user: &User) -> Result<(), RoomError> {
         if self.capacity > 0 {

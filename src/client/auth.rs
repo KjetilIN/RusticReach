@@ -6,9 +6,7 @@ use tokio_stream::StreamExt;
 
 use crate::{
     client::config::ClientConfig,
-    core::
-        messages::{ClientMessage, ServerMessage}
-    ,
+    core::messages::{ClientMessage, ServerMessage},
     utils::{
         constants::{INFO_LOG, WARNING_LOG},
         hash::hash_str,

@@ -5,7 +5,7 @@ use futures_util::StreamExt as _;
 use rustic_reach::{
     core::{
         messages::{ClientMessage, ServerMessage},
-        room::room::ServerRooms,
+        room::room::{ServerRooms, WebRoom},
         user::user::User,
     },
     server::handlers::command_handlers::handle_client_command,
@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 async fn ws(
     req: HttpRequest,
     body: web::Payload,
-    rooms: web::Data<Arc<Mutex<ServerRooms>>>,
+    rooms: WebRoom,
 ) -> actix_web::Result<impl Responder> {
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
 
@@ -40,7 +40,7 @@ async fn ws(
                         match chat_msg {
                             // Handle the command
                             ClientMessage::Command(command) => {
-                                handle_client_command(&command, &mut current_user).await;
+                                handle_client_command(&command, &mut current_user, &rooms).await;
                             }
 
                             // The message is not a command, but a chat message to the room
@@ -61,6 +61,7 @@ async fn ws(
                         }
                     }
 
+                    // Servers responds to ping messages
                     Message::Ping(bytes) => {
                         if session.pong(&bytes).await.is_err() {
                             break;

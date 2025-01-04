@@ -174,11 +174,11 @@ impl ServerMessage {
         }
     }
 
-    pub fn room_error_msg(room_error: RoomError) -> Self{
+    pub fn room_error_msg(room_error: RoomError) -> Self {
         Self::RoomActionError(room_error.message())
     }
 
-    pub fn room_not_found() -> Self{
+    pub fn room_not_found() -> Self {
         Self::RoomActionError(RoomError::RoomNotFound.message())
     }
 }

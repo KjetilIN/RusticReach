@@ -1,44 +1,48 @@
-use std::sync::Arc;
-
-use futures_util::lock::Mutex;
-
 use crate::{
     core::{
-        messages::{Command, ServerMessage}, room::room::{RoomError, ServerRooms}, user::user::User
+        messages::{Command, ServerMessage},
+        room::room::WebRoom,
+        user::user::User,
     },
     utils::{hash::hash_str, traits::SendServerReply},
 };
 
-
-async fn join_public_room(room_name: String, current_user: &mut User, server_rooms: Arc<Mutex<ServerRooms>>) -> ServerMessage{
-    let mut server_rooms_lock = server_rooms.lock().await;
-    if server_rooms_lock.is_room_name_taken(room_name.to_string()){
-        // Can join the room only if the room is not password protected
-        if let Some(room) = server_rooms_lock.get_room_mut_with_name(room_name.to_string()){
-            if !room.has_password(){
-                if !room.contains_user(&current_user){
-                    // Add the user to the the room
-                    match room.add_user(&current_user){
-                        Ok(_) => {
-                            // Send success message
-                            return ServerMessage::successful_command("Joined room!"); 
-                        },
-                        Err(err) => {
-                            // Send the error message of the room error
-                            return ServerMessage::room_error_msg(err); 
-                        },
-                    };
+async fn join_public_room(
+    room_name: String,
+    current_user: &mut User,
+    server_rooms: &WebRoom,
+) -> ServerMessage {
+    if let Ok(mut server_rooms_lock) = server_rooms.lock() {
+        if server_rooms_lock.is_room_name_taken(room_name.to_string()) {
+            // Can join the room only if the room is not password protected
+            if let Some(room) = server_rooms_lock.get_room_mut_with_name(room_name.to_string()) {
+                if !room.has_password() {
+                    if !room.contains_user(&current_user) {
+                        // Add the user to the the room
+                        match room.add_user(&current_user) {
+                            Ok(_) => {
+                                // Send success message
+                                return ServerMessage::successful_command("Joined room!");
+                            }
+                            Err(err) => {
+                                // Send the error message of the room error
+                                return ServerMessage::room_error_msg(err);
+                            }
+                        };
+                    }
                 }
             }
         }
     }
-    
+
     return ServerMessage::room_not_found();
 }
 
-
-
-pub async fn handle_client_command(command: &Command, current_user: &mut User, server_rooms: Arc<Mutex<ServerRooms>>) {
+pub async fn handle_client_command(
+    command: &Command,
+    current_user: &mut User,
+    server_rooms: &WebRoom,
+) {
     // Info log about message
     match command {
         Command::SetName(new_name) => {
@@ -51,7 +55,10 @@ pub async fn handle_client_command(command: &Command, current_user: &mut User, s
         }
         Command::JoinPublicRoom(given_room_name) => {
             // Handles joining a public room, and then sends the server message from the action
-            join_public_room(given_room_name.to_string(), current_user, server_rooms).await.send(&mut current_user.get_session()).await;
+            join_public_room(given_room_name.to_string(), current_user, server_rooms)
+                .await
+                .send(&mut current_user.get_session())
+                .await;
         }
         Command::LeaveRoom => {
             // Leave room
