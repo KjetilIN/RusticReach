@@ -3,15 +3,35 @@ use uuid::Uuid;
 
 use std::collections::{hash_map::Values, HashMap};
 
-use crate::{core::user::user::User, utils::hash::hash_str};
+use crate::{core::user::user::User, utils::{constants::SERVER_INFO, hash::hash_str}};
 
 /// Represents any type of error that a user might have had interacting with a Room in some way
 #[derive(Debug)]
 pub enum RoomError {
+    /// Given server has met the max capacity of rooms
     MaxRoomCount(usize),
     MaxCapacityReached,
     NameOccupied,
+
+    /// Action was not available because of the given reason
     InvalidAction(String),
+    PasswordRequired,
+
+    RoomNotFound,
+}
+
+impl RoomError {
+    /// Returns a formatted message from the room error
+    pub fn message(&self) -> String{
+        match self{
+            RoomError::MaxRoomCount(count) => format!("{} {}/{} rooms created. No more available rooms available...", *SERVER_INFO, count, count),
+            RoomError::MaxCapacityReached => format!("{} Room is full", *SERVER_INFO),
+            RoomError::NameOccupied => format!("{} Room already exists", *SERVER_INFO),
+            RoomError::InvalidAction(msg) => format!("{} {}", *SERVER_INFO, msg),
+            RoomError::PasswordRequired => format!("{} Room is password protected", *SERVER_INFO),
+            RoomError::RoomNotFound => format!("{} Room does not exists", *SERVER_INFO),
+        }
+    }
 }
 
 /// Represents a state of a given room at the given time
@@ -113,6 +133,8 @@ impl Room {
     }
 
     /// Add a user to the list of joined users
+    /// 
+    /// The method clones the user, changes the room of the user, and adds it to the room
     pub fn add_user(&mut self, user: &User) -> Result<(), RoomError> {
         if self.capacity > 0 {
             if let Some(user_id) = user.get_id() {
@@ -169,7 +191,7 @@ impl ServerRooms {
     }
 
     /// Checks if the given room is already exists on the server
-    fn room_name_taken(&self, room_name: String) -> bool {
+    pub fn is_room_name_taken(&self, room_name: String) -> bool {
         for (_, room) in &self.rooms {
             if room.name() == room_name {
                 return true;
@@ -179,7 +201,7 @@ impl ServerRooms {
     }
 
     /// Get the given room id
-    fn get_room_id(&self, room_name: String) -> Option<String> {
+    pub fn get_room_id(&self, room_name: String) -> Option<String> {
         for (_, room) in &self.rooms {
             if room.name() == room_name {
                 return Some(room.id.clone());
@@ -189,7 +211,7 @@ impl ServerRooms {
     }
 
     /// Returns a mutable reference to the room of the user
-    fn get_room_mut(&mut self, user: &User) -> Option<&mut Room> {
+    pub fn get_room_mut(&mut self, user: &User) -> Option<&mut Room> {
         let room_name = user.get_room_name()?;
         if let Some(room) = self.rooms.get_mut(&room_name) {
             return Some(room);
@@ -200,7 +222,7 @@ impl ServerRooms {
     }
 
     /// Returns a reference to the room that the user is in
-    fn get_room(&self, user: &User) -> Option<&Room> {
+    pub fn get_room(&self, user: &User) -> Option<&Room> {
         let room_name = user.get_room_name()?;
         if let Some(room) = self.rooms.get(&room_name) {
             return Some(room);
@@ -208,6 +230,15 @@ impl ServerRooms {
 
         // User is not in the room
         None
+    }
+
+    pub fn get_room_mut_with_name(&mut self, room_name: String) -> Option<&mut Room> {
+        self.rooms.get_mut(&room_name)
+    }
+
+    /// Get the room with given name
+    pub fn get_room_with_name(&self, room_name: String) -> Option<&Room> {
+        self.rooms.get(&room_name)
     }
 
     /// Create a new password protected room
@@ -225,7 +256,7 @@ impl ServerRooms {
         // Create room only if we are allowed to create more rooms
         if self.rooms.len() < self.max_rooms_count {
             // Create room
-            if !self.room_name_taken(room_name.clone()) {
+            if !self.is_room_name_taken(room_name.clone()) {
                 // Create a new room with password and insert it to the list of rooms
                 let room = Room::new(owner, room_name.clone(), room_capacity).password(password);
                 self.rooms.insert(room_name, room);
@@ -249,7 +280,7 @@ impl ServerRooms {
         // Create room only if we are allowed to create more rooms
         if self.rooms.len() < self.max_rooms_count {
             // Create room
-            if !self.room_name_taken(room_name.clone()) {
+            if !self.is_room_name_taken(room_name.clone()) {
                 // Create a new room with password and insert it to the list of rooms
                 let room = Room::new(owner, room_name.clone(), room_capacity);
                 self.rooms.insert(room_name, room);

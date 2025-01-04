@@ -1,28 +1,23 @@
 use std::sync::{Arc, Mutex};
 
-use actix_ws::Session;
 use awc::ws;
 use futures_util::SinkExt;
 use tokio_stream::StreamExt;
 
 use crate::{
     client::config::ClientConfig,
-    core::{
-        messages::{ClientMessage, ServerMessage},
-        user::user::User,
-    },
+    core::
+        messages::{ClientMessage, ServerMessage}
+    ,
     utils::{
         constants::{INFO_LOG, WARNING_LOG},
         hash::hash_str,
         terminal_ui::TerminalUI,
-        traits::{JsonSerializing, SendServerReply},
+        traits::JsonSerializing,
     },
 };
 
-use super::{
-    runtime::{WsFramedSink, WsFramedStream},
-    state::ClientState,
-};
+use super::runtime::{WsFramedSink, WsFramedStream};
 
 /// Authenticate the given user
 ///

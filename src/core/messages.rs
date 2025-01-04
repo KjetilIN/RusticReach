@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use super::user::user::User;
+use super::{room::room::RoomError, user::user::User};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -24,7 +24,7 @@ impl SendServerReply for ClientMessage {}
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Command {
     SetName(String),
-    JoinRoom(String),
+    JoinPublicRoom(String),
     LeaveRoom,
     RoomInfo,
     AuthUser(String),
@@ -44,7 +44,7 @@ impl Command {
             "/join" => {
                 if parts.len() == 2 {
                     let room_name = parts[1];
-                    return Some(Command::JoinRoom(room_name.to_owned()));
+                    return Some(Command::JoinPublicRoom(room_name.to_owned()));
                 }
             }
             "/leave" => {
@@ -136,7 +136,14 @@ pub enum ServerMessage {
         current_room: Option<String>,
         message: String,
     },
+
+    /// Message that represent a chat message
     Chat(ChatMessage),
+
+    /// Error message from a Room Error
+    RoomActionError(String),
+
+    /// Sent when user has been authenticated
     Authenticated,
 }
 
@@ -165,6 +172,14 @@ impl ServerMessage {
             current_room: user.get_room_name(),
             message: message.to_string(),
         }
+    }
+
+    pub fn room_error_msg(room_error: RoomError) -> Self{
+        Self::RoomActionError(room_error.message())
+    }
+
+    pub fn room_not_found() -> Self{
+        Self::RoomActionError(RoomError::RoomNotFound.message())
     }
 }
 

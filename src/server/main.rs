@@ -40,7 +40,7 @@ async fn ws(
                         match chat_msg {
                             // Handle the command
                             ClientMessage::Command(command) => {
-                                handle_client_command(&command, &mut current_user).await
+                                handle_client_command(&command, &mut current_user).await;
                             }
 
                             // The message is not a command, but a chat message to the room

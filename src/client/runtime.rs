@@ -58,11 +58,11 @@ fn handle_client_stdin(
                         ));
                     });
                 }
-                Command::JoinRoom(room_name) => {
+                Command::JoinPublicRoom(room_name) => {
                     client_state.room = Some(room_name.clone());
 
                     // Send join room to server
-                    let join_message = ClientMessage::Command(Command::JoinRoom(room_name));
+                    let join_message = ClientMessage::Command(Command::JoinPublicRoom(room_name));
                     message_tx.send(join_message).unwrap_or_else(|err| {
                         terminal_ui.add_message(format!(
                             "{} Unbounded channel error: {}",
@@ -191,6 +191,9 @@ async fn handle_incoming_messages(
                                     // User is successfully authenticated
                                     let aut_msg = format!("{} Authenticated on the server!", *SERVER_INFO);
                                     terminal_ui_sender.send(aut_msg).expect("Could not send authenticate message over terminal channel");
+                                },
+                                ServerMessage::RoomActionError(msg) => {
+                                    terminal_ui_sender.send(msg).expect("Could not send room action error message over terminal channel");
                                 }
                             }
                         },
