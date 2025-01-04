@@ -9,11 +9,7 @@ use rustic_reach::{
         user::user::User,
     },
     server::handlers::command_handlers::handle_client_command,
-    utils::{
-        constants::{INFO_LOG, WARNING_LOG},
-        hash::hash_str,
-        traits::SendServerReply,
-    },
+    utils::constants::{INFO_LOG, WARNING_LOG},
 };
 use std::sync::{Arc, Mutex};
 

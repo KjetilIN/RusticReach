@@ -1,16 +1,11 @@
-use actix_web::web;
 use actix_ws::Session;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
-};
 
 use crate::{
     core::{
         messages::ServerMessage,
-        room::room::{Room, ServerRooms},
+        room::room::Room,
     },
-    utils::traits::{JsonSerializing, SendServerReply},
+    utils::traits::SendServerReply,
 };
 
 use super::role::UserRole;

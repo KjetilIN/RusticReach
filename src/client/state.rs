@@ -1,4 +1,5 @@
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ClientState {
     id: String,
     pub user_name: String,
