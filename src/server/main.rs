@@ -8,6 +8,7 @@ use rustic_reach::{
         room::room::ServerRooms,
         user::user::User,
     },
+    server::handlers::command_handlers::handle_client_command,
     utils::{
         constants::{INFO_LOG, WARNING_LOG},
         hash::hash_str,
@@ -31,8 +32,6 @@ async fn ws(
             while let Some(Ok(msg)) = msg_stream.next().await {
                 match msg {
                     Message::Text(text) => {
-                        // TODO: deserialize message from server
-                        println!("Message: {text}");
                         let chat_msg: ClientMessage = match serde_json::from_str(&text) {
                             Ok(chat) => chat,
                             Err(_) => {
@@ -43,48 +42,12 @@ async fn ws(
 
                         // Handle the message differently based on command or not
                         match chat_msg {
+                            // Handle the command
                             ClientMessage::Command(command) => {
-                                // Info log about message
-                                match command {
-                                    rustic_reach::core::messages::Command::SetName(new_name) => {
-                                        // Changing the name
-                                        current_user.set_user_name(new_name);
-
-                                        // Send update message
-                                        let msg = ServerMessage::state_update(
-                                            &current_user,
-                                            "New user name set",
-                                        );
-                                        msg.send(&mut session).await;
-                                    }
-                                    rustic_reach::core::messages::Command::JoinRoom(room) => {
-                                        // Send success message
-                                        let msg = ServerMessage::successful_command("Joined room!");
-                                        msg.send(&mut session).await;
-                                    }
-                                    rustic_reach::core::messages::Command::LeaveRoom => {
-                                        // Leave room
-
-                                        // Send update message
-                                        let msg =
-                                            ServerMessage::state_update(&current_user, "Left room");
-                                        msg.send(&mut current_user.get_session()).await;
-                                    }
-                                    rustic_reach::core::messages::Command::RoomInfo => {
-                                        if let Some(room_name) = current_user.get_room_name() {
-                                            // Find information about the current room
-                                        }
-                                    }
-                                    rustic_reach::core::messages::Command::AuthUser(user_id) => {
-                                        // Set the user id of the user with the given user
-                                        current_user.set_id(hash_str(&user_id));
-
-                                        // Send auth message back to user
-                                        let msg = ServerMessage::Authenticated;
-                                        msg.send(&mut current_user.get_session()).await;
-                                    }
-                                }
+                                handle_client_command(&command, &mut current_user).await
                             }
+
+                            // The message is not a command, but a chat message to the room
                             ClientMessage::Chat(chat_message) => {
                                 // Log that a chat message has been received
                                 println!(
