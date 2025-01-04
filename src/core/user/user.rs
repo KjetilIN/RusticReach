@@ -5,16 +5,20 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{core::messages::ServerMessage, server::room::Rooms, utils::traits::SendServerReply};
+use crate::{
+    core::{
+        messages::ServerMessage,
+        room::room::{Room, ServerRooms},
+    },
+    utils::traits::{JsonSerializing, SendServerReply},
+};
 
 use super::role::UserRole;
 
-// Set of users for the server
-pub type Users = Arc<Mutex<HashMap<String, User>>>;
-
 #[derive(Clone)]
 pub struct User {
-    id: String,
+    // If the ID has not been set, then the user are not validated by the server
+    id: Option<String>,
     name: Option<String>,
     role: UserRole,
     room_name: Option<String>,
@@ -22,9 +26,10 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(user_id: String, session: Session) -> Self {
+    /// Creates a new user from the given Session
+    pub fn new(session: Session) -> Self {
         Self {
-            id: user_id,
+            id: None,
             room_name: None,
             name: None,
             role: UserRole::default(),
@@ -52,12 +57,21 @@ impl User {
         return "unknown";
     }
 
-    pub fn get_role(&self) -> &UserRole{
+    /// Set the id of the user
+    ///
+    /// The id can only be set once. Once it is set, we cannot set it again
+    pub fn set_id(&mut self, id: String) {
+        if self.id.is_none() {
+            self.id = Some(id);
+        }
+    }
+
+    pub fn get_role(&self) -> &UserRole {
         &self.role
     }
 
-    pub fn get_id(&self) -> &str {
-        &self.id
+    pub fn get_id(&self) -> Option<&str> {
+        self.id.as_deref()
     }
 
     pub fn get_room_name(&self) -> Option<String> {
@@ -73,61 +87,27 @@ impl User {
         self.room_name = Some(room_name);
     }
 
-    pub async fn join_room(&mut self, user_id: &str, room_name: &str, rooms: &web::Data<Rooms>) {
-        // Set the room from the rooms
-        let mut rooms = rooms.lock().unwrap();
-        let room = rooms
-            .entry(room_name.to_string())
-            .or_insert_with(HashSet::new);
-        room.insert(user_id.to_string());
-
-        // Set the current room name to the client
-        self.room_name = Some(room_name.to_owned());
-    }
-
-    pub async fn leave_room(&mut self, user_id: &str, rooms: &web::Data<Rooms>) {
-        // Acquire lock
-        let mut rooms = rooms.lock().unwrap();
-        if let Some(current_room) = &self.room_name.clone() {
-            // If the room is a valid room!
-            if let Some(room) = rooms.get_mut(current_room) {
-                // Remove the client from the room
-                room.remove(user_id);
-
-                self.room_name = None;
-
-                // Remove the room if there is no user here
-                // TODO: make this optional
-                if room.is_empty() {
-                    rooms.remove(current_room);
-                }
-            }
-        }
-    }
-
-    pub async fn broadcast_message(
-        &self,
-        message: &ServerMessage,
-        rooms: &web::Data<Rooms>,
-        users: &web::Data<Users>,
-    ) {
+    pub async fn broadcast_message(&self, message: &ServerMessage, room: &Room) {
         // Client must have a room
         assert!(
             self.room_name.is_some(),
             "Client tried to cast a message when room was none"
         );
 
-        let rooms = rooms.lock().unwrap();
-        let mut users = users.lock().unwrap();
+        // ID must be set before being able to talk in the group
+        assert!(
+            self.id.is_some(),
+            "ID of the user was None, when broadcast was tried"
+        );
 
-        if let Some(room) = rooms.get(&self.room_name.clone().unwrap()) {
-            for user_id in room {
-                if *user_id != self.id {
-                    if let Some(client) = users.get_mut(user_id) {
-                        message.send(&mut client.get_session()).await;
-                    }
-                }
-            }
+        // Make sure that the user himself is in the room that will broadcast the message in the room
+        assert!(
+            room.contains_user(self),
+            "User was not in the room as expected"
+        );
+
+        for user in room.iter_users() {
+            message.send(&mut user.get_session().clone()).await;
         }
     }
 }

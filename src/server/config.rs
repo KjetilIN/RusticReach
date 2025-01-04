@@ -19,11 +19,11 @@ fn default_max_users() -> usize {
     return 4;
 }
 
-fn min_room_count() -> usize{
-    return 3; 
+fn min_room_count() -> usize {
+    return 3;
 }
 
-fn max_user_count_per_room() -> usize{
+fn max_user_count_per_room() -> usize {
     return 5;
 }
 
@@ -56,9 +56,8 @@ pub struct GeneralServerConfig {
     max_user_count: usize,
 }
 
-
 #[derive(Debug, Deserialize, Serialize)]
-pub struct RoomConfig{
+pub struct RoomConfig {
     #[serde(default = "min_room_count")]
     max_room_count: usize,
 

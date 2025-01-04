@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use std::collections::HashMap;
+use std::collections::{hash_map::Values, HashMap};
 
 use crate::{core::user::user::User, utils::hash::hash_str};
 
@@ -15,52 +15,77 @@ pub enum RoomError {
 }
 
 /// Represents a state of a given room at the given time
-#[derive(Debug)]
 pub struct Room {
     id: String,
     owner_id: String,
     name: String,
     capacity: usize,
-    joined_users: HashMap<String, String>,
+    users: HashMap<String, User>,
     password_hash: Option<String>,
 }
 
 impl Room {
     /// Create a new room with random id
-    pub fn new(owner: &User, room_name: String, capacity: usize) -> Self{
+    pub fn new(owner: &User, room_name: String, capacity: usize) -> Self {
         let room_id = Uuid::new_v4().to_string();
-        Self { id: room_id, owner_id: owner.get_id().to_string(), name: room_name, capacity, joined_users: HashMap::new(), password_hash: None }
+        Self {
+            id: room_id,
+            owner_id: owner
+                .get_id()
+                .expect("Owner of group had an ID that was not set")
+                .to_string(),
+            name: room_name,
+            capacity,
+            users: HashMap::new(),
+            password_hash: None,
+        }
     }
 
     /// Sets the password of the room
     /// Takes the password in plain text and hashes it before storing
-    pub fn password(mut self, plain_password: String) -> Self{
+    pub fn password(mut self, plain_password: String) -> Self {
         self.password_hash = Some(hash_str(&plain_password));
         self
     }
 
     /// Returns true if the room requires a password
-    pub fn has_password(&self) -> bool{
+    pub fn has_password(&self) -> bool {
         self.password_hash.is_some()
     }
 
     /// Authenticate method
-    /// 
+    ///
     /// If no password is set, then always returns true
-    pub fn is_correct_password(&self, input: &str) -> bool{
-        if self.has_password(){
+    pub fn is_correct_password(&self, input: &str) -> bool {
+        if self.has_password() {
             let hashed_input = hash_str(input);
-            return hashed_input == self.password_hash.clone().unwrap()
+            return hashed_input == self.password_hash.clone().unwrap();
         }
 
         // No password, return true
         true
     }
 
-
     /// Check if the given user is the owner of the given room room
-    pub fn is_owned_by(&self, user: &User) -> bool{
-        return self.owner_id == user.get_id()
+    pub fn is_owned_by(&self, user: &User) -> bool {
+        if user.get_id().is_none() {
+            return false;
+        }
+        return self.owner_id == user.get_id().unwrap();
+    }
+
+    pub fn contains_user(&self, user: &User) -> bool {
+        assert!(
+            user.get_id().is_some(),
+            "contains_user, id not set for the user"
+        );
+        for current_user in self.users.values() {
+            if user.get_id().unwrap() == current_user.get_id().unwrap() {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Gets the name of the user
@@ -75,27 +100,42 @@ impl Room {
 
     /// Get the amount of users that are in the room
     pub fn joined_user_count(&self) -> usize {
-        self.joined_users.len()
+        self.users.len()
     }
 
     /// Remove the given user from the room
     pub fn remove_user(&mut self, user: &User) {
-        if self.joined_users.contains_key(user.get_id()) {
-            self.joined_users.remove(user.get_id());
+        if let Some(user_id) = user.get_id() {
+            if self.users.contains_key(user_id) {
+                self.users.remove(user_id);
+            }
         }
     }
 
     /// Add a user to the list of joined users
     pub fn add_user(&mut self, user: &User) -> Result<(), RoomError> {
         if self.capacity > 0 {
-            if !self.joined_users.contains_key(user.get_id()) {
-                self.joined_users
-                    .insert(user.get_id().to_owned(), user.get_user_name().to_owned());
+            if let Some(user_id) = user.get_id() {
+                if !self.users.contains_key(user_id) {
+                    // Make the user mutable, change the room name, and then insert it to the room
+                    let mut user = user.clone();
+                    user.set_room(self.name.clone());
+                    self.users.insert(user_id.to_owned(), user.clone());
+                }
+            } else {
+                // Should not be possible, panic
+                //TODO: handle unexpected behavior better
+                panic!("User did not have an ID")
             }
             Ok(())
         } else {
             return Err(RoomError::MaxCapacityReached);
         }
+    }
+
+    /// Returns an iterator of all Users in the room
+    pub fn iter_users(&self) -> Values<'_, String, User> {
+        self.users.values()
     }
 
     /// Returns a struct that represents the information about the current room
@@ -114,7 +154,6 @@ pub struct RoomInformation {
 }
 
 /// Collection of Rooms that the server currently has
-#[derive(Debug)]
 pub struct ServerRooms {
     rooms: HashMap<String, Room>,
     max_rooms_count: usize,
@@ -149,12 +188,39 @@ impl ServerRooms {
         None
     }
 
-    /// Create a new password protected room
-    /// 
-    /// Uses the room configuration to do the allowed operations
-    pub fn create_private_room(&mut self, room_name: String, room_capacity:usize, owner: &User, password: String) -> Result<(), RoomError> {
-        // TODO: get from config the privileges of room creation
+    /// Returns a mutable reference to the room of the user
+    fn get_room_mut(&mut self, user: &User) -> Option<&mut Room> {
+        let room_name = user.get_room_name()?;
+        if let Some(room) = self.rooms.get_mut(&room_name) {
+            return Some(room);
+        }
 
+        // User is not in the room
+        None
+    }
+
+    /// Returns a reference to the room that the user is in
+    fn get_room(&self, user: &User) -> Option<&Room> {
+        let room_name = user.get_room_name()?;
+        if let Some(room) = self.rooms.get(&room_name) {
+            return Some(room);
+        }
+
+        // User is not in the room
+        None
+    }
+
+    /// Create a new password protected room
+    ///
+    /// Uses the room configuration to do the allowed operations
+    pub fn create_private_room(
+        &mut self,
+        room_name: String,
+        room_capacity: usize,
+        owner: &User,
+        password: String,
+    ) -> Result<(), RoomError> {
+        // TODO: get from config the privileges of room creation
 
         // Create room only if we are allowed to create more rooms
         if self.rooms.len() < self.max_rooms_count {
@@ -172,9 +238,13 @@ impl ServerRooms {
     }
 
     /// Create a public room without password
-    pub fn create_public_room(&mut self, room_name: String, room_capacity:usize, owner: &User) -> Result<(), RoomError> {
+    pub fn create_public_room(
+        &mut self,
+        room_name: String,
+        room_capacity: usize,
+        owner: &User,
+    ) -> Result<(), RoomError> {
         // TODO: get from config the privileges of room creation
-
 
         // Create room only if we are allowed to create more rooms
         if self.rooms.len() < self.max_rooms_count {

@@ -32,6 +32,10 @@ impl ClientConfig {
         &self.user_name
     }
 
+    pub fn get_token(&self) -> &str {
+        &self.user_token
+    }
+
     pub fn get_default_server(&self) -> Option<&DefaultServer> {
         self.default_server.as_ref()
     }

@@ -23,7 +23,7 @@ use crate::{
     client::state::ClientState,
     core::messages::{ChatMessage, ClientMessage, Command, ServerMessage},
     utils::{
-        constants::{server_message, ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL},
+        constants::{server_message, ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, SERVER_INFO},
         terminal_ui::TerminalUI,
     },
 };
@@ -102,6 +102,9 @@ fn handle_client_stdin(
                             *ERROR_LOG, room_command_colored
                         ));
                     }
+                }
+                Command::AuthUser(_) => {
+                    unimplemented!("Auth from command line")
                 }
             }
         } else {
@@ -184,6 +187,11 @@ async fn handle_incoming_messages(
                                     // Add message to the terminal ui
                                     terminal_ui_sender.send(chat_message.format()).expect("Could not send chat message over terminal channel");
                                 },
+                                ServerMessage::Authenticated => {
+                                    // User is successfully authenticated
+                                    let aut_msg = format!("{} Authenticated on the server!", *SERVER_INFO);
+                                    terminal_ui_sender.send(aut_msg).expect("Could not send authenticate message over terminal channel");
+                                }
                             }
                         },
                         Err(err) => println!("{} Failed to parse text frame: {}", *ERROR_LOG, err),
@@ -259,9 +267,12 @@ pub async fn connect(
         // - stream:
         let (mut sink, mut stream): (WsFramedSink, WsFramedStream) = ws.split();
 
+        // Sent to the server the client token, and confirm 
+        //TODO: let server know about the client and its token 
+
         // Client state to be shared between users
         let mut client_state =
-            ClientState::new(client_config.get_user_name(&None).to_owned(), None);
+            ClientState::new(client_config.get_token().to_owned(), client_config.get_user_name(&None).to_owned(), None);
 
         // Creating two threads:
         // - input thread: handle input from the user
@@ -295,6 +306,7 @@ pub async fn connect(
             }
         });
 
+        // Handle incoming messages on streams and unbounded channel 
         handle_incoming_messages(&mut stream, &mut sink, &terminal_ui_sender, &mut client_message_receiver).await;
 
         // Wait for the input thread to finish

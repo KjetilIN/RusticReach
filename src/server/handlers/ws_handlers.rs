@@ -5,40 +5,43 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::core::user::user::User;
+use crate::{
+    core::{room::room::Room, user::user::User},
+    utils::constants::INFO_LOG,
+};
 
-pub type WebRoom = web::Data<Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>>;
-
-pub async fn handle_join(room_name: String, user: &mut User, user_id: &String, rooms: &WebRoom) {
+pub async fn handle_join(room_name: String, user: &mut User, room: &mut Room) {
     // Leave the current room if necessary
-    if user.has_joined_room() {
-        user.leave_room(&user_id, &rooms).await;
+    if room.contains_user(user) {
+        room.remove_user(user);
     }
 
     // Log join message
     println!(
-        "[INFO] User {} is joining in room: {}",
+        "{} User {} is joining in room: {}",
+        *INFO_LOG,
         &user.get_user_name(),
         room_name
     );
 
     // Join the new room
-    user.join_room(&user_id, &room_name, &rooms).await;
+    let room_join_result = room.add_user(user);
+    match room_join_result {
+        Ok(_) => (),
+        Err(_) => todo!(),
+    }
 }
 
-pub async fn handle_leave(
-    session: &mut Session,
-    current_room: &mut Option<String>,
-    user: &mut User,
-    user_id: &String,
-    rooms: &WebRoom,
-) {
+pub async fn handle_leave(user: &mut User, room: &mut Room) {
     // Leave the current room
-    if let Some(_) = current_room.take() {
-        user.leave_room(&user_id, &rooms).await;
-        session.text("Left the room").await.unwrap();
+    if room.contains_user(user) {
+        room.remove_user(user);
+        user.get_session().text("Left the room").await.unwrap();
     } else {
-        session.text("You are not in any room").await.unwrap();
+        user.get_session()
+            .text("You are not in any room")
+            .await
+            .unwrap();
     }
 }
 

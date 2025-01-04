@@ -27,6 +27,7 @@ pub enum Command {
     JoinRoom(String),
     LeaveRoom,
     RoomInfo,
+    AuthUser(String),
 }
 
 impl Command {
@@ -136,6 +137,7 @@ pub enum ServerMessage {
         message: String,
     },
     Chat(ChatMessage),
+    Authenticated,
 }
 
 impl ServerMessage {

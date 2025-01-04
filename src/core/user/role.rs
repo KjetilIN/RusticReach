@@ -1,4 +1,3 @@
-
 #[derive(Clone, Debug)]
 pub enum UserRole {
     /// Creator of the chat server (hosts the chat server)
@@ -9,7 +8,6 @@ pub enum UserRole {
     RoomAdmin(String),
 
     //TODO: role that contains actions, which can be given by server admin
-
     /// Regular user, no special role
     Regular,
 }
