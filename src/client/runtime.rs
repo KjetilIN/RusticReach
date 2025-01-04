@@ -28,7 +28,7 @@ use crate::{
     },
 };
 
-use super::config::ClientConfig;
+use super::{auth::auth_user, config::ClientConfig};
 
 pub type WsFramedSink = SplitSink<Framed<BoxedSocket, ws::Codec>, ws::Message>;
 pub type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
@@ -273,6 +273,17 @@ pub async fn connect(
         // Client state to be shared between users
         let mut client_state =
             ClientState::new(client_config.get_token().to_owned(), client_config.get_user_name(&None).to_owned(), None);
+
+
+        // Before we do anything, we authenticate the user
+        match auth_user(&mut sink, &mut stream, &client_config, terminal_ui.clone()).await {
+            Ok(_) => (),
+            Err(_) => {
+                // Exit procedure, auth not valid
+                disable_raw_mode().unwrap();
+                exit(1);
+            },
+        }
 
         // Creating two threads:
         // - input thread: handle input from the user

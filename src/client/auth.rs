@@ -1,3 +1,8 @@
+use std::sync::{Arc, Mutex};
+
+use actix_ws::Session;
+use awc::ws;
+use futures_util::SinkExt;
 use tokio_stream::StreamExt;
 
 use crate::{
@@ -10,11 +15,14 @@ use crate::{
         constants::{INFO_LOG, WARNING_LOG},
         hash::hash_str,
         terminal_ui::TerminalUI,
-        traits::SendServerReply,
+        traits::{JsonSerializing, SendServerReply},
     },
 };
 
-use super::runtime::WsFramedStream;
+use super::{
+    runtime::{WsFramedSink, WsFramedStream},
+    state::ClientState,
+};
 
 /// Authenticate the given user
 ///
@@ -24,19 +32,26 @@ use super::runtime::WsFramedStream;
 ///
 /// Returns Ok(()) when the user is authenticated
 pub async fn auth_user(
-    user: &mut User,
-    config: &ClientConfig,
-    terminal_ui: &mut TerminalUI,
+    sink: &mut WsFramedSink,
     stream: &mut WsFramedStream,
+    config: &ClientConfig,
+    terminal_ui: Arc<Mutex<TerminalUI>>,
 ) -> Result<(), String> {
     // Hash the user token and then send auth message to server
     let hashed_token = hash_str(config.get_token());
-    let auth_msg = ClientMessage::Command(crate::core::messages::Command::AuthUser(hashed_token));
-    auth_msg.send(&mut user.get_session()).await;
+
+    // TODO: we can make this easier and refactor it
+    let auth_msg = ClientMessage::Command(crate::core::messages::Command::AuthUser(hashed_token))
+        .serialized()
+        .await
+        .unwrap();
+    sink.send(ws::Message::Text(auth_msg.into())).await.unwrap();
 
     // Wait until received auth
     let wait_msg = format!("{} Waiting for server to auth user...", *INFO_LOG);
-    terminal_ui.add_message(wait_msg);
+    if let Ok(mut ui) = terminal_ui.lock() {
+        ui.add_message(wait_msg);
+    }
 
     // Read from websocket stream until we get a response back
     while let Some(Ok(msg)) = stream.next().await {
@@ -59,17 +74,21 @@ pub async fn auth_user(
                         match server_msg {
                             ServerMessage::Authenticated => {
                                 // The user has been authenticated!
-                                terminal_ui.add_message(format!(
-                                    "{} User successfully authenticated!",
-                                    *INFO_LOG
-                                ));
+                                if let Ok(mut ui) = terminal_ui.lock() {
+                                    ui.add_message(format!(
+                                        "{} User successfully authenticated!",
+                                        *INFO_LOG
+                                    ));
+                                }
                                 return Ok(());
                             }
                             _ => {
-                                terminal_ui.add_message(format!(
-                                    "{} Ignored unrecognized message: {}",
-                                    *WARNING_LOG, valid_str
-                                ));
+                                if let Ok(mut ui) = terminal_ui.lock() {
+                                    ui.add_message(format!(
+                                        "{} Ignored unrecognized message: {}",
+                                        *WARNING_LOG, valid_str
+                                    ));
+                                }
                                 continue;
                             }
                         }
@@ -84,7 +103,9 @@ pub async fn auth_user(
                 ));
             }
             _ => {
-                terminal_ui.add_message(format!("{} Ignored unrecognized message", *WARNING_LOG));
+                if let Ok(mut ui) = terminal_ui.lock() {
+                    ui.add_message(format!("{} Ignored unrecognized message", *WARNING_LOG));
+                }
                 continue;
             }
         }
