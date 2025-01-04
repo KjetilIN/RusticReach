@@ -7,33 +7,37 @@ use std::{
 
 use crate::{core::messages::ServerMessage, server::room::Rooms, utils::traits::SendServerReply};
 
+use super::role::UserRole;
+
 // Set of users for the server
 pub type Users = Arc<Mutex<HashMap<String, User>>>;
 
 #[derive(Clone)]
 pub struct User {
-    user_id: String,
+    id: String,
+    name: Option<String>,
+    role: UserRole,
+    room_name: Option<String>,
     session: Option<Session>,
-    user_name: Option<String>,
-    current_room_name: Option<String>,
 }
 
 impl User {
     pub fn new(user_id: String, session: Session) -> Self {
         Self {
-            user_id,
-            current_room_name: None,
-            user_name: None,
+            id: user_id,
+            room_name: None,
+            name: None,
+            role: UserRole::default(),
             session: Some(session),
         }
     }
 
     pub fn set_user_name(&mut self, user_name: String) {
-        self.user_name = Some(user_name);
+        self.name = Some(user_name);
     }
 
     pub fn has_joined_room(&self) -> bool {
-        self.current_room_name.is_some()
+        self.room_name.is_some()
     }
 
     pub fn get_session(&self) -> Session {
@@ -41,28 +45,32 @@ impl User {
     }
 
     pub fn get_user_name(&self) -> &str {
-        if let Some(name) = &self.user_name {
+        if let Some(name) = &self.name {
             return &name;
         }
 
         return "unknown";
     }
 
+    pub fn get_role(&self) -> &UserRole{
+        &self.role
+    }
+
     pub fn get_id(&self) -> &str {
-        &self.user_id
+        &self.id
     }
 
     pub fn get_room_name(&self) -> Option<String> {
         //TODO: improve this, should not need to clone
-        self.current_room_name.clone()
+        self.room_name.clone()
     }
 
     pub fn take_room(&mut self) -> Option<String> {
-        self.current_room_name.take()
+        self.room_name.take()
     }
 
     pub fn set_room(&mut self, room_name: String) {
-        self.current_room_name = Some(room_name);
+        self.room_name = Some(room_name);
     }
 
     pub async fn join_room(&mut self, user_id: &str, room_name: &str, rooms: &web::Data<Rooms>) {
@@ -74,19 +82,19 @@ impl User {
         room.insert(user_id.to_string());
 
         // Set the current room name to the client
-        self.current_room_name = Some(room_name.to_owned());
+        self.room_name = Some(room_name.to_owned());
     }
 
     pub async fn leave_room(&mut self, user_id: &str, rooms: &web::Data<Rooms>) {
         // Acquire lock
         let mut rooms = rooms.lock().unwrap();
-        if let Some(current_room) = &self.current_room_name.clone() {
+        if let Some(current_room) = &self.room_name.clone() {
             // If the room is a valid room!
             if let Some(room) = rooms.get_mut(current_room) {
                 // Remove the client from the room
                 room.remove(user_id);
 
-                self.current_room_name = None;
+                self.room_name = None;
 
                 // Remove the room if there is no user here
                 // TODO: make this optional
@@ -105,16 +113,16 @@ impl User {
     ) {
         // Client must have a room
         assert!(
-            self.current_room_name.is_some(),
+            self.room_name.is_some(),
             "Client tried to cast a message when room was none"
         );
 
         let rooms = rooms.lock().unwrap();
         let mut users = users.lock().unwrap();
 
-        if let Some(room) = rooms.get(&self.current_room_name.clone().unwrap()) {
+        if let Some(room) = rooms.get(&self.room_name.clone().unwrap()) {
             for user_id in room {
-                if *user_id != self.user_id {
+                if *user_id != self.id {
                     if let Some(client) = users.get_mut(user_id) {
                         message.send(&mut client.get_session()).await;
                     }

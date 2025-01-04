@@ -16,6 +16,7 @@ server:
 
   # Room Configuration
   room_config:
+    room_password_required: true  # Whether rooms require a password to join
     max_room_count: 4  # Max number of rooms the server can handle at once
     default_room_type: "public"  # Default room type: "public" or "private"
     room_name_max_length: 50  # Max length for room names
@@ -24,14 +25,17 @@ server:
 
   # Security & Permissions
   security:
-    room_password_required: true  # Whether rooms require a password to join
     user_permissions:  # Permissions available to regular users
       - join
       - leave
       - create
       - send_message
       - change_nickname
+    room_owner_permissions:
+
     admin_permissions:  # Permissions available to admins
+      - join
+      - leave
       - kick
       - ban
       - delete_message

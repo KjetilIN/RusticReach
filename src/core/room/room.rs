@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use std::collections::HashMap;
 
-use crate::core::user::user::User;
+use crate::{core::user::user::User, utils::hash::hash_str};
 
 /// Represents any type of error that a user might have had interacting with a Room in some way
 #[derive(Debug)]
@@ -17,6 +18,7 @@ pub enum RoomError {
 #[derive(Debug)]
 pub struct Room {
     id: String,
+    owner_id: String,
     name: String,
     capacity: usize,
     joined_users: HashMap<String, String>,
@@ -24,6 +26,43 @@ pub struct Room {
 }
 
 impl Room {
+    /// Create a new room with random id
+    pub fn new(owner: &User, room_name: String, capacity: usize) -> Self{
+        let room_id = Uuid::new_v4().to_string();
+        Self { id: room_id, owner_id: owner.get_id().to_string(), name: room_name, capacity, joined_users: HashMap::new(), password_hash: None }
+    }
+
+    /// Sets the password of the room
+    /// Takes the password in plain text and hashes it before storing
+    pub fn password(mut self, plain_password: String) -> Self{
+        self.password_hash = Some(hash_str(&plain_password));
+        self
+    }
+
+    /// Returns true if the room requires a password
+    pub fn has_password(&self) -> bool{
+        self.password_hash.is_some()
+    }
+
+    /// Authenticate method
+    /// 
+    /// If no password is set, then always returns true
+    pub fn is_correct_password(&self, input: &str) -> bool{
+        if self.has_password(){
+            let hashed_input = hash_str(input);
+            return hashed_input == self.password_hash.clone().unwrap()
+        }
+
+        // No password, return true
+        true
+    }
+
+
+    /// Check if the given user is the owner of the given room room
+    pub fn is_owned_by(&self, user: &User) -> bool{
+        return self.owner_id == user.get_id()
+    }
+
     /// Gets the name of the user
     pub fn name(&self) -> String {
         self.name.clone()
@@ -110,15 +149,40 @@ impl ServerRooms {
         None
     }
 
-    /// Create a new chat room
-    pub fn create_room(&mut self, room_name: String, user: &mut User) -> Result<(), RoomError> {
+    /// Create a new password protected room
+    /// 
+    /// Uses the room configuration to do the allowed operations
+    pub fn create_private_room(&mut self, room_name: String, room_capacity:usize, owner: &User, password: String) -> Result<(), RoomError> {
         // TODO: get from config the privileges of room creation
 
 
         // Create room only if we are allowed to create more rooms
         if self.rooms.len() < self.max_rooms_count {
             // Create room
-            if !self.room_name_taken(room_name) {
+            if !self.room_name_taken(room_name.clone()) {
+                // Create a new room with password and insert it to the list of rooms
+                let room = Room::new(owner, room_name.clone(), room_capacity).password(password);
+                self.rooms.insert(room_name, room);
+                return Ok(());
+            }
+            // The given room name is taken for this server
+            return Err(RoomError::NameOccupied);
+        }
+        return Err(RoomError::MaxRoomCount(self.rooms.len()));
+    }
+
+    /// Create a public room without password
+    pub fn create_public_room(&mut self, room_name: String, room_capacity:usize, owner: &User) -> Result<(), RoomError> {
+        // TODO: get from config the privileges of room creation
+
+
+        // Create room only if we are allowed to create more rooms
+        if self.rooms.len() < self.max_rooms_count {
+            // Create room
+            if !self.room_name_taken(room_name.clone()) {
+                // Create a new room with password and insert it to the list of rooms
+                let room = Room::new(owner, room_name.clone(), room_capacity);
+                self.rooms.insert(room_name, room);
                 return Ok(());
             }
             // The given room name is taken for this server

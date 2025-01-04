@@ -1,3 +1,5 @@
+
+#[derive(Clone, Debug)]
 pub enum UserRole {
     /// Creator of the chat server (hosts the chat server)
     ServerAdmin,
