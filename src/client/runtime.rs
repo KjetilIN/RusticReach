@@ -30,8 +30,8 @@ use crate::{
 
 use super::config::ClientConfig;
 
-type WsFramedSink = SplitSink<Framed<BoxedSocket, ws::Codec>, ws::Message>;
-type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
+pub type WsFramedSink = SplitSink<Framed<BoxedSocket, ws::Codec>, ws::Message>;
+pub type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
 
 fn handle_client_stdin(
     input: String,
@@ -162,8 +162,8 @@ async fn handle_incoming_messages(
     loop {
         select! {
             Some(msg) = stream.next() => match msg {
-                Ok(ws::Frame::Text(frame)) => {
-                    match String::from_utf8(frame.to_vec()) {
+                Ok(ws::Frame::Text(bytes)) => {
+                    match String::from_utf8(bytes.to_vec()) {
                         Ok(valid_str) => {
                             // Parse server message, or ignore the message
                             let server_msg: ServerMessage = match serde_json::from_str(&valid_str) {

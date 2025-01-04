@@ -1,10 +1,7 @@
 use actix_ws::Session;
 
 use crate::{
-    core::{
-        messages::ServerMessage,
-        room::room::Room,
-    },
+    core::{messages::ServerMessage, room::room::Room},
     utils::traits::SendServerReply,
 };
 
