@@ -1,4 +1,3 @@
-use core::fmt;
 use std::fmt::Debug;
 
 use actix_ws::Session;

@@ -4,7 +4,6 @@ use uuid::Uuid;
 
 use std::{
     collections::{hash_map::Values, HashMap},
-    fmt::format,
     sync::{Arc, Mutex},
 };
 
