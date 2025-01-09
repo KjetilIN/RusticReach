@@ -24,7 +24,6 @@ crossterm = "0.28.1"
 sha2 = "0.10.8"
 hex = "0.4.3"
 
-
 [dependencies.uuid]
 version = "1.11.0"
 features = [

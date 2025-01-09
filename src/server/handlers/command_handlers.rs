@@ -21,6 +21,9 @@ async fn join_public_room(
                         // Add the user to the the room
                         match room.add_user(&current_user) {
                             Ok(_) => {
+                                // Mutate the state of the user 
+                                current_user.set_room(room_name);
+                                
                                 // Send success message
                                 return ServerMessage::successful_command("Joined room!");
                             }
@@ -29,9 +32,13 @@ async fn join_public_room(
                                 return ServerMessage::room_error_msg(err);
                             }
                         };
-                    }else{
-                        // User is already in the room 
-                        return ServerMessage::room_error_msg(crate::core::room::room::RoomError::UserExists(current_user.get_user_name().to_owned()))
+                    } else {
+                        // User is already in the room
+                        return ServerMessage::room_error_msg(
+                            crate::core::room::room::RoomError::UserExists(
+                                current_user.get_user_name().to_owned(),
+                            ),
+                        );
                     }
                 }
             }
@@ -72,7 +79,7 @@ pub async fn handle_client_command(
         }
         Command::CreatePublicRoom(room_name) => {
             // Created a room with the given name
-            if let Ok(mut rooms) = server_rooms.lock(){
+            if let Ok(mut rooms) = server_rooms.lock() {
                 // Creates a public room
                 let res = rooms.create_public_room(room_name.to_string(), 5, &current_user);
                 match res {
@@ -80,12 +87,12 @@ pub async fn handle_client_command(
                         // Send OK message back
                         let msg = ServerMessage::created_room(room_name.to_string());
                         msg.send(&mut current_user.get_session()).await;
-                    },
+                    }
                     Err(err) => {
                         // Failed to create the public room
                         let server_msg = ServerMessage::room_error_msg(err);
                         server_msg.send(&mut current_user.get_session()).await;
-                    },
+                    }
                 }
             }
         }
