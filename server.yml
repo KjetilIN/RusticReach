@@ -1,5 +1,5 @@
 server:
-  # Admin configuration
+  # Server host info 
   admin:
     name: "admin" 
     token: "123dfgfaerw47ur6d"  # Used for admin authentication
@@ -16,73 +16,9 @@ server:
 
   # Room Configuration
   room_config:
+    room_password_required: true  # Whether rooms require a password to join
     max_room_count: 4  # Max number of rooms the server can handle at once
     default_room_type: "public"  # Default room type: "public" or "private"
     room_name_max_length: 50  # Max length for room names
     allow_room_creation: true  # Allow users to create new rooms
     room_capacity: 20          # Max users per room
-
-  # Security & Permissions
-  security:
-    room_password_required: true  # Whether rooms require a password to join
-    user_permissions:  # Permissions available to regular users
-      - join
-      - leave
-      - create
-      - send_message
-      - change_nickname
-    admin_permissions:  # Permissions available to admins
-      - kick
-      - ban
-      - delete_message
-      - change_server_settings
-      - view_logs
-      - mute
-    session_timeout_minutes: 30  # Session timeout for users in minutes
-    max_failed_logins: 5  # Max number of failed login attempts before locking the account
-
-  # User Registration & Account Settings
-  #user_settings:
-  #  allow_guest_login: false   # Whether to allow guest login without account creation
-  #  max_message_length: 500    # Max length for messages
-  #  enable_email_verification: true  # Whether to require email verification for account registration
-  #  enable_two_factor_auth: false   # Enable two-factor authentication for users
-  #  username_min_length: 3     # Minimum length for usernames
-  #  username_max_length: 20    # Maximum length for usernames
-
-  # Logging & Monitoring
-  #logging:
-  #  enable_server_logs: true  # Enable server logs
-  #  log_level: "info"         # Log level: "debug", "info", "warn", "error"
-  #  log_file_path: "/var/log/chatserver.log"  # Path to store server logs
-  #  log_max_size_mb: 100      # Max size of the log file in MB before rotation
-  #  enable_message_logging: true  # Whether to log user messages
-  #  log_retention_days: 30     # Number of days to keep logs
-
-  # Backup and Restore
-  #backup:
-  #  enable_backups: true  # Enable automatic backups
-  #  backup_interval_days: 7  # Interval in days between backups
-  #  backup_location: "/backups/chatserver"  # Location to store backup files
-  #  backup_retention_days: 30  # How long to keep old backups before deletion
-
-  # Networking Settings
-  #network:
-  #  max_connections_per_ip: 5  # Max number of connections allowed per IP
-  #  connection_timeout: 60     # Timeout for idle connections in seconds
-  #  allowed_ips:  # List of IPs allowed to connect (can be used for whitelisting)
-  #    - "192.168.1.1"
-  #    - "10.0.0.1"
-
-  # Notifications
-  # notifications:
-  #   enable_message_notifications: true  # Enable notifications for new messages
-  #   enable_admin_alerts: true  # Send alerts to admins for critical events (e.g., server down)
-  #   notification_interval_minutes: 5  # Interval in minutes for checking new notifications
-
-  # Miscellaneous
-  # misc:
-  #   support_email: "support@mychatserver.com"  # Email for user support
-  #   terms_of_service_url: "https://mychatserver.com/terms"  # URL to terms of service
-  #   privacy_policy_url: "https://mychatserver.com/privacy"  # URL to privacy policy
-  #   enable_emoji_reactions: true  # Whether users can react to messages with emojis

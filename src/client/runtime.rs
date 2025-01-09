@@ -23,15 +23,15 @@ use crate::{
     client::state::ClientState,
     core::messages::{ChatMessage, ClientMessage, Command, ServerMessage},
     utils::{
-        constants::{server_message, ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL},
+        constants::{server_message, ERROR_LOG, INFO_LOG, MESSAGE_COMMAND_SYMBOL, SERVER_INFO},
         terminal_ui::TerminalUI,
     },
 };
 
-use super::config::ClientConfig;
+use super::{auth::auth_user, config::ClientConfig};
 
-type WsFramedSink = SplitSink<Framed<BoxedSocket, ws::Codec>, ws::Message>;
-type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
+pub type WsFramedSink = SplitSink<Framed<BoxedSocket, ws::Codec>, ws::Message>;
+pub type WsFramedStream = SplitStream<Framed<BoxedSocket, ws::Codec>>;
 
 fn handle_client_stdin(
     input: String,
@@ -58,11 +58,11 @@ fn handle_client_stdin(
                         ));
                     });
                 }
-                Command::JoinRoom(room_name) => {
+                Command::JoinPublicRoom(room_name) => {
                     client_state.room = Some(room_name.clone());
 
                     // Send join room to server
-                    let join_message = ClientMessage::Command(Command::JoinRoom(room_name));
+                    let join_message = ClientMessage::Command(Command::JoinPublicRoom(room_name));
                     message_tx.send(join_message).unwrap_or_else(|err| {
                         terminal_ui.add_message(format!(
                             "{} Unbounded channel error: {}",
@@ -102,6 +102,18 @@ fn handle_client_stdin(
                             *ERROR_LOG, room_command_colored
                         ));
                     }
+                }
+                Command::AuthUser(_) => {
+                    unimplemented!("Auth from command line")
+                }
+                Command::CreatePublicRoom(room_name) => {
+                    let public_room_request: ClientMessage = ClientMessage::Command(Command::CreatePublicRoom(room_name));
+                    message_tx.send(public_room_request).unwrap_or_else(|err| {
+                        terminal_ui.add_message(format!(
+                            "{} Unbounded channel error: {}",
+                            *ERROR_LOG, err
+                        ));
+                    });
                 }
             }
         } else {
@@ -159,8 +171,8 @@ async fn handle_incoming_messages(
     loop {
         select! {
             Some(msg) = stream.next() => match msg {
-                Ok(ws::Frame::Text(frame)) => {
-                    match String::from_utf8(frame.to_vec()) {
+                Ok(ws::Frame::Text(bytes)) => {
+                    match String::from_utf8(bytes.to_vec()) {
                         Ok(valid_str) => {
                             // Parse server message, or ignore the message
                             let server_msg: ServerMessage = match serde_json::from_str(&valid_str) {
@@ -184,6 +196,21 @@ async fn handle_incoming_messages(
                                     // Add message to the terminal ui
                                     terminal_ui_sender.send(chat_message.format()).expect("Could not send chat message over terminal channel");
                                 },
+                                ServerMessage::Authenticated => {
+                                    // User is successfully authenticated
+                                    let aut_msg = format!("{} Authenticated on the server!", *SERVER_INFO);
+                                    terminal_ui_sender.send(aut_msg).expect("Could not send authenticate message over terminal channel");
+                                },
+                                ServerMessage::RoomActionError(msg) => {
+                                    terminal_ui_sender.send(msg).expect("Could not send room action error message over terminal channel");
+                                },
+                                ServerMessage::CreatedRoom(room_name) => {
+                                    let colored_room_name = room_name.yellow().underline();
+                                    let server_room_create_msg = format!("{} '{}' was created as a public room", *INFO_LOG, colored_room_name);
+                                    terminal_ui_sender.send(server_room_create_msg).expect("Could not send room action error message over terminal channel");
+
+                                }
+                                
                             }
                         },
                         Err(err) => println!("{} Failed to parse text frame: {}", *ERROR_LOG, err),
@@ -259,9 +286,23 @@ pub async fn connect(
         // - stream:
         let (mut sink, mut stream): (WsFramedSink, WsFramedStream) = ws.split();
 
+        // Sent to the server the client token, and confirm 
+        //TODO: let server know about the client and its token 
+
         // Client state to be shared between users
         let mut client_state =
-            ClientState::new(client_config.get_user_name(&None).to_owned(), None);
+            ClientState::new(client_config.get_token().to_owned(), client_config.get_user_name(&None).to_owned(), None);
+
+
+        // Before we do anything, we authenticate the user
+        match auth_user(&mut sink, &mut stream, &client_config, terminal_ui.clone()).await {
+            Ok(_) => (),
+            Err(_) => {
+                // Exit procedure, auth not valid
+                disable_raw_mode().unwrap();
+                exit(1);
+            },
+        }
 
         // Creating two threads:
         // - input thread: handle input from the user
@@ -295,6 +336,7 @@ pub async fn connect(
             }
         });
 
+        // Handle incoming messages on streams and unbounded channel 
         handle_incoming_messages(&mut stream, &mut sink, &terminal_ui_sender, &mut client_message_receiver).await;
 
         // Wait for the input thread to finish

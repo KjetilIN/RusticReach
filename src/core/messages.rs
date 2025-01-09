@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use super::user::User;
+use super::{room::room::RoomError, user::user::User};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -24,17 +24,11 @@ impl SendServerReply for ClientMessage {}
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Command {
     SetName(String),
-    JoinRoom(String),
+    JoinPublicRoom(String),
     LeaveRoom,
     RoomInfo,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct RoomInformation {
-    users_count: usize,
-    room_size: usize,
-    room_owner: String,
-    current_users: Vec<String>,
+    AuthUser(String),
+    CreatePublicRoom(String),
 }
 
 impl Command {
@@ -51,7 +45,7 @@ impl Command {
             "/join" => {
                 if parts.len() == 2 {
                     let room_name = parts[1];
-                    return Some(Command::JoinRoom(room_name.to_owned()));
+                    return Some(Command::JoinPublicRoom(room_name.to_owned()));
                 }
             }
             "/leave" => {
@@ -68,6 +62,11 @@ impl Command {
             "/room" => {
                 if parts.len() == 1 {
                     return Some(Command::RoomInfo);
+                }
+            }
+            "/create" =>{
+                if parts[1] == "-p" && parts.len() == 3{
+                    return Some(Command::CreatePublicRoom(parts[2].to_owned()));
                 }
             }
             _ => return None,
@@ -143,7 +142,18 @@ pub enum ServerMessage {
         current_room: Option<String>,
         message: String,
     },
+
+    /// Message that represent a chat message
     Chat(ChatMessage),
+
+    /// Error message from a Room Error
+    RoomActionError(String),
+
+    /// Sent when user has been authenticated
+    Authenticated,
+
+    /// Room message
+    CreatedRoom(String)
 }
 
 impl ServerMessage {
@@ -171,6 +181,18 @@ impl ServerMessage {
             current_room: user.get_room_name(),
             message: message.to_string(),
         }
+    }
+
+    pub fn room_error_msg(room_error: RoomError) -> Self {
+        Self::RoomActionError(room_error.message())
+    }
+
+    pub fn room_not_found() -> Self {
+        Self::RoomActionError(RoomError::RoomNotFound.message())
+    }
+
+    pub fn created_room(room_message: String) -> Self{
+        Self::CreatedRoom(room_message)
     }
 }
 

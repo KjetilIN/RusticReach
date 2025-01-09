@@ -1,7 +1,7 @@
 client:
+  user_token: "12345678756432134567"
   user_name: "zebra123"
   hash_pass: "asfdgfhgdQESHZDJXK"
-  user_token: "12345678756432134567"
   validate_server_repo: true
   default_server:
     server_ip: 127.0.0.1

@@ -5,51 +5,30 @@ use futures_util::StreamExt as _;
 use rustic_reach::{
     core::{
         messages::{ClientMessage, ServerMessage},
-        user::{User, Users},
+        room::room::{ServerRooms, WebRoom},
+        user::user::User,
     },
-    server::{handlers::ws_handlers::handle_join, room::Rooms},
-    utils::{
-        constants::{INFO_LOG, WARNING_LOG},
-        traits::SendServerReply,
-    },
+    server::handlers::command_handlers::handle_client_command,
+    utils::constants::{INFO_LOG, WARNING_LOG},
 };
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
-use uuid::Uuid;
+use std::sync::{Arc, Mutex};
 
 async fn ws(
     req: HttpRequest,
     body: web::Payload,
-    rooms: web::Data<Rooms>,
-    users: web::Data<Users>,
+    rooms: WebRoom,
 ) -> actix_web::Result<impl Responder> {
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
 
-    // Generate a unique user ID for this connection
-    let user_id = Uuid::new_v4().to_string();
-
     // Create the new user
-    let mut current_user = User::new(user_id.clone(), session.clone());
+    let mut current_user = User::new(session.clone());
 
-    // Add the user to the global list of users
-    users
-        .lock()
-        .unwrap()
-        .insert(user_id.clone(), current_user.clone());
-
+    // Create a new thread for handling the websocket session
     actix_web::rt::spawn({
-        let rooms: web::Data<Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>> =
-            rooms.clone();
-        let users = users.clone();
-
         async move {
             while let Some(Ok(msg)) = msg_stream.next().await {
                 match msg {
                     Message::Text(text) => {
-                        // TODO: deserialize message from server
-                        println!("Message: {text}");
                         let chat_msg: ClientMessage = match serde_json::from_str(&text) {
                             Ok(chat) => chat,
                             Err(_) => {
@@ -60,44 +39,12 @@ async fn ws(
 
                         // Handle the message differently based on command or not
                         match chat_msg {
+                            // Handle the command
                             ClientMessage::Command(command) => {
-                                // Info log about message
-                                match command {
-                                    rustic_reach::core::messages::Command::SetName(new_name) => {
-                                        // Changing the name
-                                        current_user.set_user_name(new_name);
-
-                                        // Send update message
-                                        let msg = ServerMessage::state_update(
-                                            &current_user,
-                                            "New user name set",
-                                        );
-                                        msg.send(&mut session).await;
-                                    }
-                                    rustic_reach::core::messages::Command::JoinRoom(room) => {
-                                        handle_join(room, &mut current_user, &user_id, &rooms)
-                                            .await;
-
-                                        // Send success message
-                                        let msg = ServerMessage::successful_command("Joined room!");
-                                        msg.send(&mut session).await;
-                                    }
-                                    rustic_reach::core::messages::Command::LeaveRoom => {
-                                        // Leave room
-                                        current_user.leave_room(&user_id, &rooms).await;
-
-                                        // Send update message
-                                        let msg =
-                                            ServerMessage::state_update(&current_user, "Left room");
-                                        msg.send(&mut current_user.get_session()).await;
-                                    }
-                                    rustic_reach::core::messages::Command::RoomInfo => {
-                                        if let Some(room_name) = current_user.get_room_name() {
-                                            // Find information about the current room
-                                        }
-                                    }
-                                }
+                                handle_client_command(&command, &mut current_user, &rooms).await;
                             }
+
+                            // The message is not a command, but a chat message to the room
                             ClientMessage::Chat(chat_message) => {
                                 // Log that a chat message has been received
                                 println!(
@@ -105,36 +52,29 @@ async fn ws(
                                     *INFO_LOG, chat_message.sender, chat_message.room
                                 );
 
-                                let chat_server_message: ServerMessage =
-                                    ServerMessage::Chat(chat_message);
+                                let _chat_server_message = ServerMessage::Chat(chat_message);
 
                                 // Broadcast this message to the room
                                 // TODO: make broadcast message handle closed channels
-                                let _ = current_user
-                                    .broadcast_message(&chat_server_message, &rooms, &users)
-                                    .await;
+                                //let _ = current_user.broadcast_message(&chat_server_message, &rooms).await;
                             }
                         }
                     }
 
+                    // Servers responds to ping messages
                     Message::Ping(bytes) => {
                         if session.pong(&bytes).await.is_err() {
                             break;
                         }
                     }
 
+                    // Maybe here do user cleanup?
                     Message::Close(_) => break,
 
                     _ => {}
                 }
             }
-
-            // Clean up when the user disconnects
-            if let Some(_) = &current_user.take_room() {
-                current_user.leave_room(&user_id, &rooms).await;
-            }
-
-            users.lock().unwrap().remove(&user_id);
+            // TODO: Clean up when the user disconnects
         }
     });
 
@@ -143,9 +83,10 @@ async fn ws(
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    // Creating the rooms and users
-    let rooms: Rooms = Arc::new(Mutex::new(HashMap::new()));
-    let users: Users = Arc::new(Mutex::new(HashMap::new()));
+    // TODO: parse server config file
+
+    // Creating the rooms for the users
+    let rooms_mutex = Arc::new(Mutex::new(ServerRooms::with_max_room_count(3)));
 
     // Server IP and port
     let server_ip = "127.0.0.1";
@@ -160,9 +101,7 @@ async fn main() -> std::io::Result<()> {
     // Creating and running the HTTP server
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(rooms.clone()))
-            .app_data(web::Data::new(users.clone()))
-            // Serving websocket
+            .app_data(web::Data::new(rooms_mutex.clone())) // Serving websocket
             .route("/ws", web::get().to(ws))
             // Serving main page
             .service(Files::new("/", "./src/frontend/").index_file("index.html"))
