@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use std::{
-    collections::{hash_map::Values, HashMap}, fmt::format, sync::{Arc, Mutex}
+    collections::{hash_map::Values, HashMap},
+    fmt::format,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -42,7 +44,10 @@ impl RoomError {
             RoomError::InvalidAction(msg) => format!("{} {}", *SERVER_INFO, msg),
             RoomError::PasswordRequired => format!("{} Room is password protected", *SERVER_INFO),
             RoomError::RoomNotFound => format!("{} Room does not exists", *SERVER_INFO),
-            RoomError::UserExists(user_name) => format!("{} User '{}' already exist in the room. Please change username", *SERVER_INFO, user_name),
+            RoomError::UserExists(user_name) => format!(
+                "{} User '{}' already exist in the room. Please change username",
+                *SERVER_INFO, user_name
+            ),
         }
     }
 }
@@ -156,8 +161,6 @@ impl Room {
             if let Some(user_id) = user.get_id() {
                 if !self.users.contains_key(user_id) {
                     // Make the user mutable, change the room name, and then insert it to the room
-                    let mut user = user.clone();
-                    user.set_room(self.name.clone());
                     self.users.insert(user_id.to_owned(), user.clone());
                 }
             } else {

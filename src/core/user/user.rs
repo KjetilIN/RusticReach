@@ -1,3 +1,6 @@
+use core::fmt;
+use std::fmt::Debug;
+
 use actix_ws::Session;
 
 use crate::{
@@ -15,6 +18,19 @@ pub struct User {
     role: UserRole,
     room_name: Option<String>,
     session: Option<Session>,
+}
+
+/// Implement debug where session is only showed as true if available
+impl Debug for User {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("User")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("role", &self.role)
+            .field("room_name", &self.room_name)
+            .field("session", &self.session.is_some())
+            .finish()
+    }
 }
 
 impl User {

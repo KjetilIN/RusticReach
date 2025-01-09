@@ -9,7 +9,7 @@ use rustic_reach::{
         user::user::User,
     },
     server::handlers::command_handlers::handle_client_command,
-    utils::constants::{INFO_LOG, WARNING_LOG},
+    utils::constants::{ERROR_LOG, INFO_LOG, WARNING_LOG},
 };
 use std::sync::{Arc, Mutex};
 
@@ -52,11 +52,20 @@ async fn ws(
                                     *INFO_LOG, chat_message.sender, chat_message.room
                                 );
 
-                                let _chat_server_message = ServerMessage::Chat(chat_message);
-
-                                // Broadcast this message to the room
-                                // TODO: make broadcast message handle closed channels
-                                //let _ = current_user.broadcast_message(&chat_server_message, &rooms).await;
+                                // Acquire lock and broadcast the message for the room
+                                if let Ok(server_rooms) = rooms.lock() {
+                                    match server_rooms.get_room(&current_user) {
+                                        Some(r) => {
+                                            let chat_server_message =
+                                                ServerMessage::Chat(chat_message);
+                                            chat_server_message.broadcast_msg(r, &current_user).await;
+                                        }
+                                        None => println!(
+                                            "{} User was not in a room, could not send message",
+                                            *ERROR_LOG
+                                        ),
+                                    };
+                                }
                             }
                         }
                     }

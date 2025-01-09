@@ -10,7 +10,10 @@ use crate::{
     },
 };
 
-use super::{room::room::RoomError, user::user::User};
+use super::{
+    room::room::{Room, RoomError},
+    user::user::User,
+};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -64,8 +67,8 @@ impl Command {
                     return Some(Command::RoomInfo);
                 }
             }
-            "/create" =>{
-                if parts[1] == "-p" && parts.len() == 3{
+            "/create" => {
+                if parts[1] == "-p" && parts.len() == 3 {
                     return Some(Command::CreatePublicRoom(parts[2].to_owned()));
                 }
             }
@@ -153,7 +156,7 @@ pub enum ServerMessage {
     Authenticated,
 
     /// Room message
-    CreatedRoom(String)
+    CreatedRoom(String),
 }
 
 impl ServerMessage {
@@ -191,8 +194,19 @@ impl ServerMessage {
         Self::RoomActionError(RoomError::RoomNotFound.message())
     }
 
-    pub fn created_room(room_message: String) -> Self{
+    pub fn created_room(room_message: String) -> Self {
         Self::CreatedRoom(room_message)
+    }
+
+    /// Broadcasts the message to the given room
+    /// 
+    /// Does not send the message to the current user, but to everyone in the given room
+    pub async fn broadcast_msg(&self, room: &Room, current_user: &User) {
+        for user in room.iter_users() {
+            if user.get_id() != current_user.get_id(){
+                self.send(&mut user.get_session()).await;
+            }
+        }
     }
 }
 
