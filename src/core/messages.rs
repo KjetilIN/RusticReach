@@ -28,6 +28,7 @@ pub enum Command {
     LeaveRoom,
     RoomInfo,
     AuthUser(String),
+    CreatePublicRoom(String),
 }
 
 impl Command {
@@ -61,6 +62,11 @@ impl Command {
             "/room" => {
                 if parts.len() == 1 {
                     return Some(Command::RoomInfo);
+                }
+            }
+            "/create" =>{
+                if parts[1] == "-p" && parts.len() == 3{
+                    return Some(Command::CreatePublicRoom(parts[2].to_owned()));
                 }
             }
             _ => return None,
@@ -145,6 +151,9 @@ pub enum ServerMessage {
 
     /// Sent when user has been authenticated
     Authenticated,
+
+    /// Room message
+    CreatedRoom(String)
 }
 
 impl ServerMessage {
@@ -180,6 +189,10 @@ impl ServerMessage {
 
     pub fn room_not_found() -> Self {
         Self::RoomActionError(RoomError::RoomNotFound.message())
+    }
+
+    pub fn created_room(room_message: String) -> Self{
+        Self::CreatedRoom(room_message)
     }
 }
 

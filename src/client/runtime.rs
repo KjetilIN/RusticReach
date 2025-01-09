@@ -106,6 +106,15 @@ fn handle_client_stdin(
                 Command::AuthUser(_) => {
                     unimplemented!("Auth from command line")
                 }
+                Command::CreatePublicRoom(room_name) => {
+                    let public_room_request: ClientMessage = ClientMessage::Command(Command::CreatePublicRoom(room_name));
+                    message_tx.send(public_room_request).unwrap_or_else(|err| {
+                        terminal_ui.add_message(format!(
+                            "{} Unbounded channel error: {}",
+                            *ERROR_LOG, err
+                        ));
+                    });
+                }
             }
         } else {
             // Exit command is the client only command
@@ -194,7 +203,14 @@ async fn handle_incoming_messages(
                                 },
                                 ServerMessage::RoomActionError(msg) => {
                                     terminal_ui_sender.send(msg).expect("Could not send room action error message over terminal channel");
+                                },
+                                ServerMessage::CreatedRoom(room_name) => {
+                                    let colored_room_name = room_name.yellow().underline();
+                                    let server_room_create_msg = format!("{} '{}' was created as a public room", *INFO_LOG, colored_room_name);
+                                    terminal_ui_sender.send(server_room_create_msg).expect("Could not send room action error message over terminal channel");
+
                                 }
+                                
                             }
                         },
                         Err(err) => println!("{} Failed to parse text frame: {}", *ERROR_LOG, err),

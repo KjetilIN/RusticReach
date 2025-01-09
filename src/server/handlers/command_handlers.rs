@@ -61,11 +61,30 @@ pub async fn handle_client_command(
                 .await;
         }
         Command::LeaveRoom => {
-            // Leave room
+            //TODO: Leave room
 
             // Send update message
             let msg = ServerMessage::state_update(&current_user, "Left room");
             msg.send(&mut current_user.get_session()).await;
+        }
+        Command::CreatePublicRoom(room_name) => {
+            // Created a room with the given name
+            if let Ok(mut rooms) = server_rooms.lock(){
+                // Creates a public room
+                let res = rooms.create_public_room(room_name.to_string(), 5, &current_user);
+                match res {
+                    Ok(_) => {
+                        // Send OK message back
+                        let msg = ServerMessage::created_room(room_name.to_string());
+                        msg.send(&mut current_user.get_session()).await;
+                    },
+                    Err(err) => {
+                        // Failed to create the public room
+                        let server_msg = ServerMessage::room_error_msg(err);
+                        server_msg.send(&mut current_user.get_session()).await;
+                    },
+                }
+            }
         }
         Command::RoomInfo => {
             if let Some(room_name) = current_user.get_room_name() {
