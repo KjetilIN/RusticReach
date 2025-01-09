@@ -29,6 +29,9 @@ async fn join_public_room(
                                 return ServerMessage::room_error_msg(err);
                             }
                         };
+                    }else{
+                        // User is already in the room 
+                        return ServerMessage::room_error_msg(crate::core::room::room::RoomError::UserExists(current_user.get_user_name().to_owned()))
                     }
                 }
             }
