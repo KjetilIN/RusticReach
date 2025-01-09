@@ -23,6 +23,7 @@ async fn ws(
     // Create the new user
     let mut current_user = User::new(session.clone());
 
+    // Create a new thread for handling the websocket session
     actix_web::rt::spawn({
         async move {
             while let Some(Ok(msg)) = msg_stream.next().await {
