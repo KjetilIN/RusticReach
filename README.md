@@ -74,3 +74,11 @@ target/bin/client -c <CLIENT_CONFIG.yml>
 ```
 
 3. Create as many clients as you want
+
+### Commands
+
+RusticReach uses a simple command system that starts with `/`. When connected to a server, you can navigate between rooms and customize your experience using these commands: 
+- `/join <room_name>` lets you enter a public chat room, 
+- `/leave` makes you leave the current room
+- `/name <new_name>` enables you to change your display name in the current room. 
+- `/create -p <ROOM_NAME>` allows you to create a public room
