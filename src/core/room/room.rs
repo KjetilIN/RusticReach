@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use std::{
-    collections::{hash_map::Values, HashMap},
-    sync::{Arc, Mutex},
+    collections::{hash_map::Values, HashMap}, fmt::format, sync::{Arc, Mutex}
 };
 
 use crate::{
@@ -19,6 +18,9 @@ pub enum RoomError {
     MaxRoomCount(usize),
     MaxCapacityReached,
     NameOccupied,
+
+    // User is already in the room
+    UserExists(String),
 
     /// Action was not available because of the given reason
     InvalidAction(String),
@@ -40,6 +42,7 @@ impl RoomError {
             RoomError::InvalidAction(msg) => format!("{} {}", *SERVER_INFO, msg),
             RoomError::PasswordRequired => format!("{} Room is password protected", *SERVER_INFO),
             RoomError::RoomNotFound => format!("{} Room does not exists", *SERVER_INFO),
+            RoomError::UserExists(user_name) => format!("{} User '{}' already exist in the room. Please change username", *SERVER_INFO, user_name),
         }
     }
 }

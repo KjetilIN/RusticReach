@@ -17,3 +17,8 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+
+# Ignore testing client and server configs
+client1.yml
+client2.yml
