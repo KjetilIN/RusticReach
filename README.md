@@ -7,7 +7,11 @@
 
 RusticReach is a self-hosted chat service that in total control of the admin and its users. It enables you to run your own private chat server with extensive customization options. Server administrators have full control over user management, room configurations, and security policies. The YAML-based configuration system allows for easy tweaking of every aspect - from setting welcome messages to defining strict access controls and room limitations.
 
-*Repository created for educational purposes only. The code is a work in progress. Feel free to [contribute!](CONTRIBUTING.md)*
+> [!NOTE]  
+> This is a hobby project created for educational purposes, currently in early development (pre-0.1.0). The code is a work in progress - feel free to [contribute!](CONTRIBUTING.md)
+>
+> **⚠️ Not Production Ready**: Features are being developed and tested. Expect bugs. For a stable chat solution, please wait for version 0.1.0 or later.
+
 
 ## Usage
 
