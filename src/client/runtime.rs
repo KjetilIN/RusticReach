@@ -286,8 +286,8 @@ pub async fn connect(
             .ws(ws_url)
             .connect()
             .await
-            .unwrap_or_else(|err| {
-                println!("{} Failed to connect to {}, {}", *ERROR_LOG, server_ip, err);
+            .unwrap_or_else(|_| {
+                println!("{} Failed to connect to {}\n", *ERROR_LOG, server_ip);
                 disable_raw_mode().unwrap();
                 exit(1)
             });
