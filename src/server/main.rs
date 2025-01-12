@@ -58,7 +58,9 @@ async fn ws(
                                         Some(r) => {
                                             let chat_server_message =
                                                 ServerMessage::Chat(chat_message);
-                                            chat_server_message.broadcast_msg(r, &current_user).await;
+                                            chat_server_message
+                                                .broadcast_msg(r, &current_user)
+                                                .await;
                                         }
                                         None => println!(
                                             "{} User was not in a room, could not send message",
