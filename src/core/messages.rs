@@ -29,12 +29,23 @@ pub enum Command {
     SetName(String),
     JoinPublicRoom(String),
     LeaveRoom,
+    Help,
     RoomInfo,
     AuthUser(String),
     CreatePublicRoom(String),
 }
 
 impl Command {
+    /// All commands that we will print information for
+    /// Only these commands are available from terminal input. They will be shown when typing /help
+    pub const INPUT_COMMANDS: [Self; 5] = [
+        Self::JoinPublicRoom(String::new()),
+        Self::SetName(String::new()),
+        Self::LeaveRoom,
+        Self::CreatePublicRoom(String::new()),
+        Self::Help,
+    ];
+
     pub fn from_str(input: &str) -> Option<Self> {
         if input.is_empty() || !input.starts_with(MESSAGE_COMMAND_SYMBOL) {
             return None;
@@ -72,10 +83,34 @@ impl Command {
                     return Some(Command::CreatePublicRoom(parts[2].to_owned()));
                 }
             }
+            "/help" => return Some(Command::Help),
             _ => return None,
         }
 
         return None;
+    }
+
+    pub fn usage(&self) -> String {
+        match self {
+            Command::Help => "/help".to_owned(),
+            Command::SetName(_) => "/name <new_name>".to_owned(),
+            Command::JoinPublicRoom(_) => "/join <public_room_name>".to_owned(),
+            Command::LeaveRoom => "/leave".to_owned(),
+            Command::CreatePublicRoom(_) => "/create -p <public_room_name>".to_owned(),
+            Command::RoomInfo => "/room (NOT IMPLEMENTED)".to_owned(),
+            Command::AuthUser(_) => "".to_owned(),
+        }
+    }
+    pub fn description(&self) -> String {
+        match self {
+            Command::SetName(_) => "Sets a new username".to_owned(),
+            Command::JoinPublicRoom(_) => "Allows the user to join a public room".to_owned(),
+            Command::LeaveRoom => "Leaves the current room".to_owned(),
+            Command::CreatePublicRoom(_) => "Create a public room".to_owned(),
+            Command::RoomInfo => "Get room information (NOT IMPLEMENTED)".to_owned(),
+            Command::Help => "List all commands and their usage".to_owned(),
+            Command::AuthUser(_) => "".to_owned(),
+        }
     }
 }
 
@@ -199,11 +234,11 @@ impl ServerMessage {
     }
 
     /// Broadcasts the message to the given room
-    /// 
+    ///
     /// Does not send the message to the current user, but to everyone in the given room
     pub async fn broadcast_msg(&self, room: &Room, current_user: &User) {
         for user in room.iter_users() {
-            if user.get_id() != current_user.get_id(){
+            if user.get_id() != current_user.get_id() {
                 self.send(&mut user.get_session()).await;
             }
         }

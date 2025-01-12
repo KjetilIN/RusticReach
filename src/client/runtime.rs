@@ -7,7 +7,7 @@ use actix_codec::Framed;
 use actix_web::web::Bytes;
 use awc::{ws, BoxedSocket};
 use colored::Colorize;
-use crossterm::terminal::disable_raw_mode;
+use crossterm::{style::Stylize, terminal::disable_raw_mode};
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt as _, StreamExt,
@@ -95,8 +95,10 @@ fn handle_client_stdin(
                         });
                     } else {
                         // Tell the user to join a room first
-                        let room_command_colored =
-                            format!("/room").yellow().underline().to_string();
+                        let room_command_colored = format!("/room")
+                            .yellow()
+                            .underline(crossterm::style::Color::Yellow)
+                            .to_string();
                         terminal_ui.add_message(format!(
                             "{} You need to be in a room before using the {} command",
                             *ERROR_LOG, room_command_colored
@@ -116,6 +118,17 @@ fn handle_client_stdin(
                         ));
                     });
                 }
+                Command::Help => {
+                    let mut commands_string = String::new();
+                    for command in Command::INPUT_COMMANDS {
+                        commands_string.push_str("\r");
+                        commands_string.push_str(&format!("{}\n", command.usage().bold()));
+                        commands_string.push_str("\r        ");
+                        commands_string.push_str(&format!("{}\n\n", command.description()));
+                    }
+                    // Add command information
+                    terminal_ui.add_message(commands_string);
+                }
             }
         } else {
             // Exit command is the client only command
@@ -126,9 +139,10 @@ fn handle_client_stdin(
                 exit(0);
             } else {
                 // Letting the user know what commands they used that was not valid
-                let error_command = input.split_ascii_whitespace().collect::<Vec<&str>>()[0]
-                    .underline()
-                    .red();
+                let error_command =
+                    Colorize::red(input.split_ascii_whitespace().collect::<Vec<&str>>()[0])
+                        .underline();
+
                 terminal_ui
                     .add_message(format!("{} Unknown command: {}", *ERROR_LOG, error_command));
             }
@@ -206,7 +220,7 @@ async fn handle_incoming_messages(
                                     terminal_ui_sender.send(msg).expect("Could not send room action error message over terminal channel");
                                 },
                                 ServerMessage::CreatedRoom(room_name) => {
-                                    let colored_room_name = room_name.yellow().underline();
+                                    let colored_room_name = room_name.yellow().underline(crossterm::style::Color::Yellow);
                                     let server_room_create_msg = format!("{} '{}' was created as a public room", *INFO_LOG, colored_room_name);
                                     terminal_ui_sender.send(server_room_create_msg).expect("Could not send room action error message over terminal channel");
 

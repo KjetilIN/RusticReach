@@ -21,9 +21,9 @@ async fn join_public_room(
                         // Add the user to the the room
                         match room.add_user(&current_user) {
                             Ok(_) => {
-                                // Mutate the state of the user 
+                                // Mutate the state of the user
                                 current_user.set_room(room_name);
-                                
+
                                 // Send success message
                                 return ServerMessage::successful_command("Joined room!");
                             }
@@ -110,5 +110,8 @@ pub async fn handle_client_command(
             let msg = ServerMessage::Authenticated;
             msg.send(&mut current_user.get_session()).await;
         }
+
+        // Help command should not be sent to the server
+        Command::Help => (),
     }
 }
