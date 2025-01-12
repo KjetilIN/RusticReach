@@ -4,6 +4,7 @@ use rustic_reach::{
     utils::{
         args::validate_args,
         constants::{DEFAULT_SERVER_PORT, INFO_LOG, WARNING_LOG},
+        startup_ui::StartupUI,
         terminal_ui::TerminalUI,
     },
 };
@@ -14,10 +15,25 @@ use std::{
 
 #[tokio::main]
 async fn main() {
+    // Parse config first
     let client_config: ClientConfig = validate_args().unwrap_or_else(|message| {
         println!("{}", message);
         exit(1);
     });
+
+    // Start startup UI screen and get IP selection
+    enable_raw_mode().unwrap();
+    let mut startup_ui = StartupUI::new().unwrap();
+    startup_ui.render().unwrap();
+
+    let selected_ip = loop {
+        if let Ok(Some(ip)) = startup_ui.handle_input() {
+            break ip;
+        }
+    };
+
+    // Cleanup startup UI
+    disable_raw_mode().unwrap();
 
     // Initialize terminal UI
     enable_raw_mode().unwrap();

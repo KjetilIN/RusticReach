@@ -1,7 +1,8 @@
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent},
-    execute, style::{self, Color, SetForegroundColor},
+    execute,
+    style::{self, Color, SetForegroundColor},
     terminal::{Clear, ClearType},
 };
 use std::io::{self, stdout, Write};
@@ -46,11 +47,20 @@ impl StartupUI {
 
     pub fn render(&self) -> io::Result<()> {
         let mut stdout = stdout();
-        execute!(stdout, Clear(ClearType::All), cursor::MoveTo(0, 0))?;
+        execute!(
+            stdout,
+            Clear(ClearType::All),
+            Clear(ClearType::Purge),
+            cursor::MoveTo(0, 0)
+        )?;
 
         // Draw logo
-        execute!(stdout, SetForegroundColor(Color::Cyan))?;
-        print!("{}", LOGO);
+        execute!(stdout, SetForegroundColor(Color::DarkYellow))?;
+        let logo_lines: Vec<&str> = LOGO.split('\n').collect();
+        for (i, line) in logo_lines.iter().enumerate() {
+            execute!(stdout, cursor::MoveTo(0, i as u16))?;
+            print!("{}", line);
+        }
         execute!(stdout, SetForegroundColor(Color::Reset))?;
 
         // Draw IP selection

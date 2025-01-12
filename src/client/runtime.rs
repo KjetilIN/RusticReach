@@ -288,6 +288,7 @@ pub async fn connect(
             .await
             .unwrap_or_else(|err| {
                 println!("{} Failed to connect to {}, {}", *ERROR_LOG, server_ip, err);
+                disable_raw_mode().unwrap();
                 exit(1)
             });
 
